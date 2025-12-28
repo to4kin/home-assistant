@@ -84,12 +84,15 @@ blueprint:
       description: >
         Optional. If outside temperature is above the threshold,
         preheat will be blocked (summer mode).
+        Supports current temperature or forecast sensors.
       default: []
       selector:
         entity:
           filter:
             - domain: sensor
               device_class: temperature
+            - domain: sensor
+            - domain: weather
 
     input_outside_temperature_threshold:
       name: 🌡️ Temperature Threshold
