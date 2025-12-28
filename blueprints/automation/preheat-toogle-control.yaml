@@ -91,8 +91,9 @@ blueprint:
           filter:
             - domain:
                 - weather
-            - device_class:
-                - temperature
+            - domain:
+                - sensor
+              device_class: temperature
 
     input_outside_temperature_threshold:
       name: 🌡️ Temperature Threshold
