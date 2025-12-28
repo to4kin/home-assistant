@@ -1,0 +1,235 @@
+blueprint:
+  name: Preheat Control - Disable When Family Home
+  author: to4kin
+  homeassistant:
+    min_version: "2024.1.0"
+  source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/preheat-toogle-control.yaml
+  description: >
+    **Version**: 1.0.0
+
+
+    Manages a preheat toggle for on-the-way-home heating.
+    Automatically disables preheat when someone arrives home,
+    prevents activation while family members are present,
+    and includes a configurable safety timeout.
+    Can optionally auto-enable preheat when everyone leaves.
+  domain: automation
+  input:
+    preheat_toggle:
+      name: Preheat Toggle
+      description: The input boolean used to trigger preheat mode when on the way home.
+      selector:
+        entity:
+          filter:
+            - domain: input_boolean
+
+    input_persons:
+      name: 👥 Persons
+      description: >
+        Select persons to track for presence detection.
+        Preheat will be disabled when any of these persons are home.
+      default: []
+      selector:
+        entity:
+          filter:
+            - domain: person
+          multiple: true
+
+    input_arrival_delay:
+      name: 🏠 Arrival Delay
+      description: >
+        Wait this duration after someone arrives before disabling preheat.
+        Helps prevent false triggers from GPS drift.
+      default:
+        hours: 0
+        minutes: 0
+        seconds: 30
+      selector:
+        duration:
+
+    timeout_duration:
+      name: ⏰ Preheat Timeout
+      description: Automatically disable preheat after this duration if still enabled.
+      default:
+        hours: 2
+        minutes: 0
+        seconds: 0
+      selector:
+        duration:
+
+    input_auto_enable_on_leave:
+      name: 🚶 Auto-enable When Leaving
+      description: >
+        Automatically enable preheat when everyone leaves home.
+        Useful for routine departures.
+      default: false
+      selector:
+        boolean:
+
+    notify_devices:
+      name: 📱 Notification Devices
+      description: Select mobile devices to receive notifications. Leave empty to disable notifications.
+      default: []
+      selector:
+        device:
+          filter:
+            - integration: mobile_app
+          multiple: true
+
+    notify_title:
+      name: 📝 Notification Title
+      description: Title for mobile notifications.
+      default: "Preheat Control"
+      selector:
+        text:
+
+variables:
+  preheat_toggle: !input preheat_toggle
+  input_persons: !input input_persons
+  notify_devices: !input notify_devices
+  notify_title: !input notify_title
+  input_auto_enable_on_leave: !input input_auto_enable_on_leave
+  has_notify: "{{ notify_devices | length > 0 }}"
+  is_anybody_home: >
+    {{ input_persons | expand 
+                     | selectattr('state', 'eq', 'home') 
+                     | list 
+                     | count > 0 }}
+  persons_home_names: >
+    {{ input_persons | expand 
+                     | selectattr('state', 'eq', 'home') 
+                     | map(attribute='name') 
+                     | join(', ') }}
+
+trigger:
+  - platform: template
+    value_template: >
+      {{ input_persons | expand 
+                       | selectattr('state', 'eq', 'home') 
+                       | list 
+                       | count > 0 }}
+    for: !input input_arrival_delay
+    id: family_arrived
+
+  - platform: template
+    value_template: >
+      {{ input_persons | expand 
+                       | selectattr('state', 'eq', 'home') 
+                       | list 
+                       | count == 0 }}
+    id: everyone_left
+
+  - platform: state
+    entity_id: !input preheat_toggle
+    to: "on"
+    id: preheat_activated
+
+  - platform: state
+    entity_id: !input preheat_toggle
+    to: "on"
+    for: !input timeout_duration
+    id: preheat_timeout
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: family_arrived
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: !input preheat_toggle
+          - action: logbook.log
+            data:
+              name: "Preheat Control"
+              message: "Preheat disabled - {{ persons_home_names }} arrived home"
+          - if:
+              - condition: template
+                value_template: "{{ has_notify }}"
+            then:
+              - repeat:
+                  for_each: !input notify_devices
+                  sequence:
+                    - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                      data:
+                        title: "{{ notify_title }}"
+                        message: "Preheat disabled - {{ persons_home_names }} arrived home."
+                      continue_on_error: true
+
+      - conditions:
+          - condition: trigger
+            id: everyone_left
+          - condition: template
+            value_template: "{{ input_auto_enable_on_leave }}"
+        sequence:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: !input preheat_toggle
+          - action: logbook.log
+            data:
+              name: "Preheat Control"
+              message: "Preheat enabled - everyone left home"
+          - if:
+              - condition: template
+                value_template: "{{ has_notify }}"
+            then:
+              - repeat:
+                  for_each: !input notify_devices
+                  sequence:
+                    - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                      data:
+                        title: "{{ notify_title }}"
+                        message: "Preheat enabled - everyone left home."
+                      continue_on_error: true
+
+      - conditions:
+          - condition: trigger
+            id: preheat_activated
+          - condition: template
+            value_template: "{{ is_anybody_home }}"
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: !input preheat_toggle
+          - action: logbook.log
+            data:
+              name: "Preheat Control"
+              message: "Preheat blocked - {{ persons_home_names }} already home"
+          - if:
+              - condition: template
+                value_template: "{{ has_notify }}"
+            then:
+              - repeat:
+                  for_each: !input notify_devices
+                  sequence:
+                    - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                      data:
+                        title: "{{ notify_title }}"
+                        message: "Cannot enable preheat - {{ persons_home_names }} already home."
+                      continue_on_error: true
+
+      - conditions:
+          - condition: trigger
+            id: preheat_timeout
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: !input preheat_toggle
+          - action: logbook.log
+            data:
+              name: "Preheat Control"
+              message: "Preheat disabled - timeout reached"
+          - if:
+              - condition: template
+                value_template: "{{ has_notify }}"
+            then:
+              - repeat:
+                  for_each: !input notify_devices
+                  sequence:
+                    - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                      data:
+                        title: "{{ notify_title }}"
+                        message: "Preheat automatically disabled after timeout."
+                      continue_on_error: true
+
+mode: single
