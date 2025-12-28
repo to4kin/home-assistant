@@ -5,7 +5,7 @@ blueprint:
     min_version: "2024.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/preheat-toogle-control.yaml
   description: >
-    **Version**: 1.0.0
+    **Version**: 1.1.0
 
 
     Manages a preheat toggle for on-the-way-home heating.
@@ -13,6 +13,7 @@ blueprint:
     prevents activation while family members are present,
     and includes a configurable safety timeout.
     Can optionally auto-enable preheat when everyone leaves.
+    Supports outside temperature threshold to prevent enables during warm weather.
   domain: automation
   input:
     preheat_toggle:
@@ -66,6 +67,42 @@ blueprint:
       selector:
         boolean:
 
+    input_leaving_delay:
+      name: 💨 Leaving Delay
+      description: >
+        Wait this duration after everyone leaves before enabling preheat.
+        Helps prevent false triggers from GPS drift.
+      default:
+        hours: 0
+        minutes: 0
+        seconds: 30
+      selector:
+        duration:
+
+    input_outside_temperature:
+      name: 🌡️ Outside Temperature Sensor
+      description: >
+        Optional. If outside temperature is above the threshold,
+        preheat will be blocked (summer mode).
+      default: []
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: temperature
+
+    input_outside_temperature_threshold:
+      name: 🌡️ Temperature Threshold
+      description: >
+        Preheat is blocked when outside temperature is above this value.
+      default: 15
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 1
+          unit_of_measurement: "°C"
+
     notify_devices:
       name: 📱 Notification Devices
       description: Select mobile devices to receive notifications. Leave empty to disable notifications.
@@ -89,6 +126,8 @@ variables:
   notify_devices: !input notify_devices
   notify_title: !input notify_title
   input_auto_enable_on_leave: !input input_auto_enable_on_leave
+  input_outside_temp: !input input_outside_temperature
+  input_outside_temp_threshold: !input input_outside_temperature_threshold
   has_notify: "{{ notify_devices | length > 0 }}"
   is_anybody_home: >
     {{ input_persons | expand 
@@ -100,6 +139,9 @@ variables:
                      | selectattr('state', 'eq', 'home') 
                      | map(attribute='name') 
                      | join(', ') }}
+  is_too_warm: >
+    {{ input_outside_temp != [] and 
+       states(input_outside_temp) | float(0) >= input_outside_temp_threshold }}
 
 trigger:
   - platform: template
@@ -117,6 +159,7 @@ trigger:
                        | selectattr('state', 'eq', 'home') 
                        | list 
                        | count == 0 }}
+    for: !input input_leaving_delay
     id: everyone_left
 
   - platform: state
@@ -161,6 +204,8 @@ action:
             id: everyone_left
           - condition: template
             value_template: "{{ input_auto_enable_on_leave }}"
+          - condition: template
+            value_template: "{{ not is_too_warm }}"
         sequence:
           - action: input_boolean.turn_on
             target:
@@ -206,6 +251,32 @@ action:
                       data:
                         title: "{{ notify_title }}"
                         message: "Cannot enable preheat - {{ persons_home_names }} already home."
+                      continue_on_error: true
+
+      - conditions:
+          - condition: trigger
+            id: preheat_activated
+          - condition: template
+            value_template: "{{ is_too_warm }}"
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: !input preheat_toggle
+          - action: logbook.log
+            data:
+              name: "Preheat Control"
+              message: "Preheat blocked - outside temperature {{ states(input_outside_temp) }}°C is above threshold"
+          - if:
+              - condition: template
+                value_template: "{{ has_notify }}"
+            then:
+              - repeat:
+                  for_each: !input notify_devices
+                  sequence:
+                    - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                      data:
+                        title: "{{ notify_title }}"
+                        message: "Cannot enable preheat - too warm outside ({{ states(input_outside_temp) }}°C)."
                       continue_on_error: true
 
       - conditions:
