@@ -5,12 +5,13 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/yandex-station-voice-control.yaml
   description: >
-    **Version**: 1.0.0
+    **Version**: 1.1.0
 
 
     Control any entity using voice commands from Yandex Station.
     Configure custom commands for turning on, off, or toggle.
-    Supports multiple entities, notifications, and TTS confirmation.
+    Supports multiple entities, source station filtering, per-action delays,
+    mobile notifications, and TTS confirmation.
 
 
     **Requires**: [Yandex Station](https://github.com/AlexxIT/YandexStation) integration (HACS).
@@ -31,6 +32,18 @@ blueprint:
             entity:
               multiple: true
 
+        source_stations:
+          name: 🔊 Source Stations
+          description: >
+            Optional. Only listen to commands from these Yandex Stations.
+            Leave empty to listen to all stations.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: media_player
+              multiple: true
+
     # Voice Commands
     voice_section:
       name: Voice Commands
@@ -46,6 +59,16 @@ blueprint:
           selector:
             text:
 
+        turn_on_delay:
+          name: ⏱️ Turn On Delay
+          description: Wait this duration before turning on.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
+
         turn_off_command:
           name: ⏹️ Turn Off Command
           description: >
@@ -55,6 +78,16 @@ blueprint:
           selector:
             text:
 
+        turn_off_delay:
+          name: ⏱️ Turn Off Delay
+          description: Wait this duration before turning off.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
+
         toggle_command:
           name: 🔁 Toggle Command
           description: >
@@ -63,6 +96,29 @@ blueprint:
           default: ""
           selector:
             text:
+
+        toggle_delay:
+          name: ⏱️ Toggle Delay
+          description: Wait this duration before toggling.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
+
+    # Advanced Settings
+    advanced_section:
+      name: Advanced Settings
+      icon: mdi:cog
+      collapsed: true
+      input:
+        enable_logbook:
+          name: 📓 Enable Logbook
+          description: Log actions to Home Assistant logbook.
+          default: true
+          selector:
+            boolean:
 
     # Notifications
     notification_section:
@@ -82,6 +138,34 @@ blueprint:
                 - integration: mobile_app
               multiple: true
 
+        notify_title:
+          name: ✏️ Notification Title
+          description: Title for mobile notifications.
+          default: "Yandex Station"
+          selector:
+            text:
+
+        notify_message_on:
+          name: ▶️ Notification Message (On)
+          description: Custom notification message when turning on.
+          default: "Turned on"
+          selector:
+            text:
+
+        notify_message_off:
+          name: ⏹️ Notification Message (Off)
+          description: Custom notification message when turning off.
+          default: "Turned off"
+          selector:
+            text:
+
+        notify_message_toggle:
+          name: 🔁 Notification Message (Toggle)
+          description: Custom notification message when toggling.
+          default: "Toggled"
+          selector:
+            text:
+
     # TTS Confirmation
     tts_section:
       name: TTS Confirmation
@@ -89,7 +173,7 @@ blueprint:
       collapsed: true
       input:
         tts_entity:
-          name: 🔊 Yandex Station for TTS
+          name: 🗣️ Yandex Station for TTS
           description: >
             Optional. Select Yandex Station media player for voice confirmation.
             Leave empty to disable.
@@ -122,6 +206,7 @@ blueprint:
 
 variables:
   target_entities: !input target_entities
+  source_stations: !input source_stations
   notify_devices: !input notify_devices
   tts_entity: !input tts_entity
   tts_confirm_on: !input tts_confirm_on
@@ -130,8 +215,16 @@ variables:
   turn_on_cmd: !input turn_on_command
   turn_off_cmd: !input turn_off_command
   toggle_cmd: !input toggle_command
+  enable_logbook: !input enable_logbook
+  notify_msg_on: !input notify_message_on
+  notify_msg_off: !input notify_message_off
+  notify_msg_toggle: !input notify_message_toggle
+  notify_title: !input notify_title
   has_notify: "{{ notify_devices | length > 0 }}"
   has_tts: "{{ tts_entity != [] and tts_entity != '' }}"
+  has_source_filter: "{{ source_stations | length > 0 }}"
+  event_entity: "{{ trigger.event.data.entity_id | default('') }}"
+  is_valid_source: "{{ not has_source_filter or event_entity in source_stations }}"
   entity_names: >
     {{ target_entities | map('state_attr', 'friendly_name') | select('string') | join(', ') }}
 
@@ -149,6 +242,8 @@ trigger:
     id: toggle
 
 condition:
+  - condition: template
+    value_template: "{{ is_valid_source }}"
   - condition: or
     conditions:
       - condition: and
@@ -176,13 +271,18 @@ action:
           - condition: template
             value_template: "{{ turn_on_cmd != '' and trigger.event.data.value == turn_on_cmd }}"
         sequence:
+          - delay: !input turn_on_delay
           - action: homeassistant.turn_on
             target:
               entity_id: !input target_entities
-          - action: logbook.log
-            data:
-              name: "Yandex Station"
-              message: "Turned on {{ entity_names }}"
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Yandex Station"
+                  message: "Turned on {{ entity_names }}"
           - if:
               - condition: template
                 value_template: "{{ has_tts }}"
@@ -203,21 +303,26 @@ action:
                   sequence:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
-                        title: "Yandex Station"
-                        message: "Turned on {{ entity_names }}"
+                        title: "{{ notify_title }}"
+                        message: "{{ notify_msg_on }} {{ entity_names }}"
                       continue_on_error: true
 
       - conditions:
           - condition: template
             value_template: "{{ turn_off_cmd != '' and trigger.event.data.value == turn_off_cmd }}"
         sequence:
+          - delay: !input turn_off_delay
           - action: homeassistant.turn_off
             target:
               entity_id: !input target_entities
-          - action: logbook.log
-            data:
-              name: "Yandex Station"
-              message: "Turned off {{ entity_names }}"
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Yandex Station"
+                  message: "Turned off {{ entity_names }}"
           - if:
               - condition: template
                 value_template: "{{ has_tts }}"
@@ -238,21 +343,26 @@ action:
                   sequence:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
-                        title: "Yandex Station"
-                        message: "Turned off {{ entity_names }}"
+                        title: "{{ notify_title }}"
+                        message: "{{ notify_msg_off }} {{ entity_names }}"
                       continue_on_error: true
 
       - conditions:
           - condition: template
             value_template: "{{ toggle_cmd != '' and trigger.event.data.value == toggle_cmd }}"
         sequence:
+          - delay: !input toggle_delay
           - action: homeassistant.toggle
             target:
               entity_id: !input target_entities
-          - action: logbook.log
-            data:
-              name: "Yandex Station"
-              message: "Toggled {{ entity_names }}"
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Yandex Station"
+                  message: "Toggled {{ entity_names }}"
           - if:
               - condition: template
                 value_template: "{{ has_tts }}"
@@ -273,8 +383,8 @@ action:
                   sequence:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
-                        title: "Yandex Station"
-                        message: "Toggled {{ entity_names }}"
+                        title: "{{ notify_title }}"
+                        message: "{{ notify_msg_toggle }} {{ entity_names }}"
                       continue_on_error: true
 
 mode: single

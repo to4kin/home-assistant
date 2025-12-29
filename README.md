@@ -37,7 +37,10 @@ Control any entity using voice commands from Yandex Station.
 - Control any entity (switch, light, fan, cover, script, etc.)
 - Multiple entities support
 - Turn on, turn off, and toggle commands (all optional)
-- Mobile notifications (optional)
+- Source station filtering (listen to specific stations only)
+- Per-action delays (separate delay for on/off/toggle)
+- Mobile notifications with custom title and messages
 - TTS confirmation via Yandex Station (optional)
+- Optional logbook entries
 
 **Requires:** [Yandex Station](https://github.com/AlexxIT/YandexStation) integration (HACS).
