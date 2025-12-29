@@ -4,16 +4,13 @@ blueprint:
   homeassistant:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/yandex-station-voice-control.yaml
-  description: >
+  description: |
     **Version**: 1.1.0
-
 
     Control any entity using voice commands from Yandex Station.
     Configure custom commands for turning on, off, or toggle.
 
-
     **Features**:
-
     - Control any entity (switch, light, fan, cover, script, etc.)
     - Multiple entities support
     - Source station filtering (listen to specific stations only)
@@ -22,7 +19,6 @@ blueprint:
     - Mobile notifications with custom title and messages
     - TTS confirmation via Yandex Station (optional)
     - Optional logbook entries
-
 
     **Requires**: [Yandex Station](https://github.com/AlexxIT/YandexStation) integration (HACS).
   domain: automation

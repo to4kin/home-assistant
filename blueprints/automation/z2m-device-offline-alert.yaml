@@ -4,16 +4,13 @@ blueprint:
   homeassistant:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/z2m-device-offline-alert.yaml
-  description: >
+  description: |
     **Version**: 1.0.0
-
 
     Monitors Zigbee2MQTT devices and sends notifications when they go offline.
     Includes a configurable delay to avoid false alerts from temporary disconnections.
 
-
     **Features**:
-
     - Monitors all Z2M devices automatically
     - Exclude specific devices from monitoring
     - Critical devices with shorter delay (bypass quiet hours)
@@ -23,7 +20,6 @@ blueprint:
     - Mobile and persistent notifications
     - Optional back online notification
     - Optional logbook entries
-
 
     **Requires**: [Zigbee2MQTT](https://www.zigbee2mqtt.io/) integration.
   domain: automation
