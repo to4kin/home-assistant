@@ -12,8 +12,17 @@ blueprint:
     Automatically disables preheat when someone arrives home,
     prevents activation while family members are present,
     and includes a configurable safety timeout.
-    Can optionally auto-enable preheat when everyone leaves.
-    Supports outside temperature threshold to prevent enables during warm weather.
+
+
+    **Features**:
+
+    - Auto-disable when family arrives home
+    - Block enabling if someone is already home
+    - Configurable arrival/leaving delays
+    - Auto-enable when everyone leaves (optional)
+    - Outside temperature threshold (summer mode)
+    - Mobile notifications
+    - Logbook entries
 
 
     **Usage with AHC**: Add your preheat toggle to the 
@@ -153,6 +162,19 @@ blueprint:
           selector:
             text:
 
+    # Logging
+    logging_section:
+      name: Logging
+      icon: mdi:notebook-outline
+      collapsed: true
+      input:
+        enable_logbook:
+          name: 📓 Enable Logbook
+          description: Log events to Home Assistant logbook.
+          default: true
+          selector:
+            boolean:
+
 variables:
   preheat_toggle: !input preheat_toggle
   input_persons: !input input_persons
@@ -161,6 +183,7 @@ variables:
   input_auto_enable_on_leave: !input input_auto_enable_on_leave
   input_outside_temp: !input input_outside_temperature
   input_outside_temp_threshold: !input input_outside_temperature_threshold
+  enable_logbook: !input enable_logbook
   has_notify: "{{ notify_devices | length > 0 }}"
   is_anybody_home: >
     {{ input_persons | expand 
@@ -215,10 +238,14 @@ action:
           - action: input_boolean.turn_off
             target:
               entity_id: !input preheat_toggle
-          - action: logbook.log
-            data:
-              name: "Preheat Control"
-              message: "Preheat disabled - {{ persons_home_names }} arrived home"
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Preheat Control"
+                  message: "Preheat disabled - {{ persons_home_names }} arrived home"
           - if:
               - condition: template
                 value_template: "{{ has_notify }}"
@@ -243,10 +270,14 @@ action:
           - action: input_boolean.turn_on
             target:
               entity_id: !input preheat_toggle
-          - action: logbook.log
-            data:
-              name: "Preheat Control"
-              message: "Preheat enabled - everyone left home"
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Preheat Control"
+                  message: "Preheat enabled - everyone left home"
           - if:
               - condition: template
                 value_template: "{{ has_notify }}"
@@ -269,10 +300,14 @@ action:
           - action: input_boolean.turn_off
             target:
               entity_id: !input preheat_toggle
-          - action: logbook.log
-            data:
-              name: "Preheat Control"
-              message: "Preheat blocked - {{ persons_home_names }} already home"
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Preheat Control"
+                  message: "Preheat blocked - {{ persons_home_names }} already home"
           - if:
               - condition: template
                 value_template: "{{ has_notify }}"
@@ -295,10 +330,14 @@ action:
           - action: input_boolean.turn_off
             target:
               entity_id: !input preheat_toggle
-          - action: logbook.log
-            data:
-              name: "Preheat Control"
-              message: "Preheat blocked - outside temperature {{ states(input_outside_temp) }}°C is above threshold"
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Preheat Control"
+                  message: "Preheat blocked - outside temperature {{ states(input_outside_temp) }}°C is above threshold"
           - if:
               - condition: template
                 value_template: "{{ has_notify }}"
@@ -319,10 +358,14 @@ action:
           - action: input_boolean.turn_off
             target:
               entity_id: !input preheat_toggle
-          - action: logbook.log
-            data:
-              name: "Preheat Control"
-              message: "Preheat disabled - timeout reached"
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Preheat Control"
+                  message: "Preheat disabled - timeout reached"
           - if:
               - condition: template
                 value_template: "{{ has_notify }}"

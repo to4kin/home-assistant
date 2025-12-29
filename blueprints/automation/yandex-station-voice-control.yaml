@@ -10,8 +10,18 @@ blueprint:
 
     Control any entity using voice commands from Yandex Station.
     Configure custom commands for turning on, off, or toggle.
-    Supports multiple entities, source station filtering, per-action delays,
-    mobile notifications, and TTS confirmation.
+
+
+    **Features**:
+
+    - Control any entity (switch, light, fan, cover, script, etc.)
+    - Multiple entities support
+    - Source station filtering (listen to specific stations only)
+    - Turn on, turn off, and toggle commands (all optional)
+    - Per-action delays (separate delay for on/off/toggle)
+    - Mobile notifications with custom title and messages
+    - TTS confirmation via Yandex Station (optional)
+    - Optional logbook entries
 
 
     **Requires**: [Yandex Station](https://github.com/AlexxIT/YandexStation) integration (HACS).

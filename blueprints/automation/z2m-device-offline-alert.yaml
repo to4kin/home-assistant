@@ -1,0 +1,339 @@
+blueprint:
+  name: Z2M Device Offline Alert
+  author: to4kin
+  homeassistant:
+    min_version: "2025.1.0"
+  source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/z2m-device-offline-alert.yaml
+  description: >
+    **Version**: 1.0.0
+
+
+    Monitors Zigbee2MQTT devices and sends notifications when they go offline.
+    Includes a configurable delay to avoid false alerts from temporary disconnections.
+
+
+    **Features**:
+
+    - Monitors all Z2M devices automatically
+    - Exclude specific devices from monitoring
+    - Critical devices with shorter delay (bypass quiet hours)
+    - Time-based filtering (quiet hours)
+    - Repeat notifications for still-offline devices
+    - Configurable delay before alerting (default: 30 minutes)
+    - Mobile and persistent notifications
+    - Optional back online notification
+    - Optional logbook entries
+
+
+    **Requires**: [Zigbee2MQTT](https://www.zigbee2mqtt.io/) integration.
+  domain: automation
+  input:
+    # Alert Settings
+    alert_section:
+      name: Alert Settings
+      icon: mdi:alert
+      collapsed: false
+      input:
+        exclude_entities:
+          name: 🚫 Exclude Entities
+          description: >
+            Optional. Entities to exclude from monitoring.
+            Useful for devices that frequently go offline.
+          default: []
+          selector:
+            entity:
+              multiple: true
+
+        offline_delay:
+          name: ⏱️ Offline Delay
+          description: >
+            Wait this duration before sending alert.
+            Helps avoid false alerts from temporary disconnections.
+          default:
+            hours: 0
+            minutes: 30
+            seconds: 0
+          selector:
+            duration:
+
+    # Critical Devices
+    critical_section:
+      name: Critical Devices
+      icon: mdi:alert-circle
+      collapsed: true
+      input:
+        critical_entities:
+          name: 🚨 Critical Entities
+          description: >
+            Optional. Critical devices that use shorter delay.
+            These devices will alert faster and bypass quiet hours.
+          default: []
+          selector:
+            entity:
+              multiple: true
+
+        critical_delay:
+          name: 🚨 Critical Delay
+          description: Shorter delay for critical devices.
+          default:
+            hours: 0
+            minutes: 5
+            seconds: 0
+          selector:
+            duration:
+
+    # Time Filter
+    time_section:
+      name: Time Filter
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        enable_time_filter:
+          name: 🕔 Enable Quiet Hours
+          description: Only send alerts during specified time window.
+          default: false
+          selector:
+            boolean:
+
+        time_start:
+          name: ☀️ Alert Start Time
+          description: Start sending alerts at this time.
+          default: "08:00:00"
+          selector:
+            time:
+
+        time_end:
+          name: 🌙 Alert End Time
+          description: Stop sending alerts at this time.
+          default: "22:00:00"
+          selector:
+            time:
+
+    # Notifications
+    notification_section:
+      name: Notifications
+      icon: mdi:cellphone-message
+      collapsed: false
+      input:
+        notify_devices:
+          name: 📲 Notification Devices
+          description: Select mobile devices to receive offline alerts.
+          selector:
+            device:
+              filter:
+                - integration: mobile_app
+              multiple: true
+
+        notify_title:
+          name: ✏️ Notification Title
+          description: Title for the notification.
+          default: "⚠️ Zigbee Device Offline"
+          selector:
+            text:
+
+        notify_message:
+          name: 💬 Notification Message (Offline)
+          description: >
+            Message template. Use {{ device_name }} for the device name.
+          default: "{{ device_name }} is offline!"
+          selector:
+            text:
+
+        repeat_notification:
+          name: 🔁 Repeat Notification
+          description: >
+            Optional. Re-send notification if device is still offline.
+            Set to 0 to disable.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
+
+        notify_back_online:
+          name: ✅ Notify When Back Online
+          description: Send notification when device comes back online.
+          default: false
+          selector:
+            boolean:
+
+        notify_message_online:
+          name: ✅ Notification Message (Online)
+          description: >
+            Message when device comes back online. Use {{ device_name }} for the device name.
+          default: "{{ device_name }} is back online!"
+          selector:
+            text:
+
+        enable_persistent:
+          name: 📌 Persistent Notification
+          description: >
+            Show persistent notification in HA UI until dismissed.
+            Automatically dismissed when device comes back online.
+          default: false
+          selector:
+            boolean:
+
+    # Logging
+    logging_section:
+      name: Logging
+      icon: mdi:notebook-outline
+      collapsed: true
+      input:
+        enable_logbook:
+          name: 📓 Enable Logbook
+          description: Log offline events to Home Assistant logbook.
+          default: true
+          selector:
+            boolean:
+
+variables:
+  entity_id: "{{ trigger.event.data.entity_id }}"
+  device_name: "{{ trigger.event.data.new_state.attributes.friendly_name | default(trigger.event.data.entity_id) }}"
+  is_offline: "{{ trigger.event.data.new_state.state == 'unavailable' and trigger.event.data.old_state.state != 'unavailable' }}"
+  is_online: "{{ trigger.event.data.old_state.state == 'unavailable' and trigger.event.data.new_state.state != 'unavailable' }}"
+  exclude_entities: !input exclude_entities
+  critical_entities: !input critical_entities
+  is_critical: "{{ entity_id in critical_entities }}"
+  notify_devices: !input notify_devices
+  notify_title: !input notify_title
+  notify_msg_offline: !input notify_message
+  notify_msg_online: !input notify_message_online
+  notify_back_online: !input notify_back_online
+  enable_persistent: !input enable_persistent
+  enable_logbook: !input enable_logbook
+  enable_time_filter: !input enable_time_filter
+  time_start: !input time_start
+  time_end: !input time_end
+  persistent_id: "z2m_offline_{{ entity_id | slugify }}"
+
+trigger:
+  - platform: event
+    event_type: state_changed
+    id: state_change
+
+condition:
+  - condition: template
+    value_template: >
+      {{ trigger.event.data.new_state is not none
+         and trigger.event.data.old_state is not none
+         and (is_offline or is_online)
+         and 'mqtt' in (device_attr(entity_id, 'identifiers') | string | lower)
+         and entity_id not in exclude_entities }}
+
+action:
+  - choose:
+      # Device went OFFLINE
+      - conditions:
+          - condition: template
+            value_template: "{{ is_offline }}"
+        sequence:
+          # Use critical delay for critical devices, normal delay for others
+          - if:
+              - condition: template
+                value_template: "{{ is_critical }}"
+            then:
+              - delay: !input critical_delay
+            else:
+              - delay: !input offline_delay
+          # Check if still offline
+          - condition: template
+            value_template: "{{ is_state(entity_id, 'unavailable') }}"
+          # Check time filter (skip if outside quiet hours, unless critical)
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ not enable_time_filter }}"
+              - condition: template
+                value_template: "{{ is_critical }}"
+              - condition: time
+                after: !input time_start
+                before: !input time_end
+          # Logbook
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Z2M Offline"
+                  message: "{{ device_name }} went offline{{ ' (CRITICAL)' if is_critical else '' }}"
+          # Persistent notification
+          - if:
+              - condition: template
+                value_template: "{{ enable_persistent }}"
+            then:
+              - action: persistent_notification.create
+                data:
+                  title: "{{ '🚨 ' if is_critical else '' }}{{ notify_title }}"
+                  message: "{{ device_name }} is offline!"
+                  notification_id: "{{ persistent_id }}"
+          # Mobile notifications
+          - repeat:
+              for_each: !input notify_devices
+              sequence:
+                - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                  data:
+                    title: "{{ '🚨 ' if is_critical else '' }}{{ notify_title }}"
+                    message: "{{ device_name }} is offline!"
+                  continue_on_error: true
+          # Repeat notification loop
+          - repeat:
+              while:
+                - condition: template
+                  value_template: "{{ is_state(entity_id, 'unavailable') }}"
+              sequence:
+                - delay: !input repeat_notification
+                - condition: template
+                  value_template: "{{ is_state(entity_id, 'unavailable') }}"
+                # Check time filter for repeat
+                - condition: or
+                  conditions:
+                    - condition: template
+                      value_template: "{{ not enable_time_filter }}"
+                    - condition: template
+                      value_template: "{{ is_critical }}"
+                    - condition: time
+                      after: !input time_start
+                      before: !input time_end
+                - repeat:
+                    for_each: !input notify_devices
+                    sequence:
+                      - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                        data:
+                          title: "{{ '🚨 ' if is_critical else '' }}{{ notify_title }} (Still Offline)"
+                          message: "{{ device_name }} is still offline!"
+                        continue_on_error: true
+
+      # Device came back ONLINE
+      - conditions:
+          - condition: template
+            value_template: "{{ is_online and notify_back_online }}"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Z2M Online"
+                  message: "{{ device_name }} is back online"
+          - if:
+              - condition: template
+                value_template: "{{ enable_persistent }}"
+            then:
+              - action: persistent_notification.dismiss
+                data:
+                  notification_id: "{{ persistent_id }}"
+          - repeat:
+              for_each: !input notify_devices
+              sequence:
+                - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                  data:
+                    title: "✅ Zigbee Device Online"
+                    message: "{{ device_name }} is back online!"
+                  continue_on_error: true
+
+mode: parallel
+max: 50

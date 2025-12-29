@@ -44,3 +44,25 @@ Control any entity using voice commands from Yandex Station.
 - Optional logbook entries
 
 **Requires:** [Yandex Station](https://github.com/AlexxIT/YandexStation) integration (HACS).
+
+---
+
+#### [Z2M Device Offline Alert](blueprints/automation/z2m-device-offline-alert.yaml)
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fto4kin%2Fhome-assistant%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fz2m-device-offline-alert.yaml)
+
+Monitors Zigbee2MQTT devices and sends notifications when they go offline.
+
+**Features:**
+
+- Monitors all Z2M devices automatically
+- Exclude specific devices from monitoring
+- Critical devices with shorter delay (bypass quiet hours)
+- Time-based filtering (quiet hours)
+- Repeat notifications for still-offline devices
+- Configurable delay before alerting (default: 30 minutes)
+- Mobile and persistent notifications
+- Optional back online notification
+- Optional logbook entries
+
+**Requires:** [Zigbee2MQTT](https://www.zigbee2mqtt.io/) integration.
