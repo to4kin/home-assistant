@@ -107,19 +107,6 @@ blueprint:
           selector:
             duration:
 
-    # Advanced Settings
-    advanced_section:
-      name: Advanced Settings
-      icon: mdi:cog
-      collapsed: true
-      input:
-        enable_logbook:
-          name: 📓 Enable Logbook
-          description: Log actions to Home Assistant logbook.
-          default: true
-          selector:
-            boolean:
-
     # Notifications
     notification_section:
       name: Notifications
@@ -203,6 +190,19 @@ blueprint:
           default: "Toggled"
           selector:
             text:
+
+    # Logging
+    logging_section:
+      name: Logging
+      icon: mdi:notebook-outline
+      collapsed: true
+      input:
+        enable_logbook:
+          name: 📓 Enable Logbook
+          description: Log actions to Home Assistant logbook.
+          default: true
+          selector:
+            boolean:
 
 variables:
   target_entities: !input target_entities
