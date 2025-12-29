@@ -53,7 +53,7 @@ blueprint:
     voice_section:
       name: Voice Commands
       icon: mdi:microphone
-      collapsed: false
+      collapsed: true
       input:
         turn_on_command:
           name: ▶️ Turn On Command (Optional)

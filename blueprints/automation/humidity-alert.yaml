@@ -149,16 +149,14 @@ blueprint:
         presence_entities:
           name: 👥 Presence Entities (Optional)
           description: >
-            Person or device_tracker entities to check presence.
+            Person entities to check presence.
             Alerts only sent when at least one person is home.
             Leave empty to always send alerts.
           default: []
           selector:
             entity:
               filter:
-                - domain:
-                    - person
-                    - device_tracker
+                - domain: person
               multiple: true
 
     # Time Filter
@@ -195,7 +193,7 @@ blueprint:
     notification_section:
       name: Notifications
       icon: mdi:cellphone-message
-      collapsed: false
+      collapsed: true
       input:
         notify_devices:
           name: 📲 Notification Devices

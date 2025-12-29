@@ -109,7 +109,7 @@ blueprint:
     notification_section:
       name: Notifications
       icon: mdi:cellphone-message
-      collapsed: false
+      collapsed: true
       input:
         notify_devices:
           name: 📲 Notification Devices
