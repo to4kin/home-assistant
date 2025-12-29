@@ -5,7 +5,7 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/z2m-device-offline-alert.yaml
   description: |
-    **Version**: 1.0.1
+    **Version**: 1.0.2
 
     Monitors Zigbee2MQTT devices and sends notifications when they go offline.
     Includes a configurable delay to avoid false alerts from temporary disconnections.
@@ -219,6 +219,8 @@ variables:
   enable_time_filter: !input enable_time_filter
   time_start: !input time_start
   time_end: !input time_end
+  offline_delay: !input offline_delay
+  offline_delay_seconds: "{{ offline_delay.hours * 3600 + offline_delay.minutes * 60 + offline_delay.seconds }}"
   persistent_id: "z2m_offline_{{ entity_id | slugify }}"
 
 trigger:
@@ -324,6 +326,11 @@ action:
           - condition: template
             value_template: "{{ is_online and notify_back_online }}"
         sequence:
+          # Only notify if device was offline for at least the offline_delay duration (filters startup false positives)
+          - condition: template
+            value_template: >
+              {{ (as_timestamp(trigger.event.data.new_state.last_changed) - 
+                  as_timestamp(trigger.event.data.old_state.last_changed)) > (offline_delay_seconds | int) }}
           - if:
               - condition: template
                 value_template: "{{ enable_logbook }}"
@@ -349,4 +356,4 @@ action:
                   continue_on_error: true
 
 mode: parallel
-max: 50
+max: 10
