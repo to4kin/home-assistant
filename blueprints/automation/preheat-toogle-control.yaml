@@ -169,6 +169,9 @@ blueprint:
           selector:
             boolean:
 
+trigger_variables:
+  input_persons: !input input_persons
+
 variables:
   preheat_toggle: !input preheat_toggle
   input_persons: !input input_persons

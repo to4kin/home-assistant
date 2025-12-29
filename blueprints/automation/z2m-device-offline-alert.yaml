@@ -194,9 +194,11 @@ blueprint:
 
 variables:
   entity_id: "{{ trigger.event.data.entity_id }}"
-  device_name: "{{ trigger.event.data.new_state.attributes.friendly_name | default(trigger.event.data.entity_id) }}"
-  is_offline: "{{ trigger.event.data.new_state.state == 'unavailable' and trigger.event.data.old_state.state != 'unavailable' }}"
-  is_online: "{{ trigger.event.data.old_state.state == 'unavailable' and trigger.event.data.new_state.state != 'unavailable' }}"
+  new_state: "{{ trigger.event.data.new_state }}"
+  old_state: "{{ trigger.event.data.old_state }}"
+  device_name: "{{ new_state.attributes.friendly_name if new_state else entity_id }}"
+  is_offline: "{{ new_state is not none and old_state is not none and new_state.state == 'unavailable' and old_state.state not in ['unavailable', 'unknown'] }}"
+  is_online: "{{ new_state is not none and old_state is not none and old_state.state == 'unavailable' and new_state.state != 'unavailable' }}"
   exclude_entities: !input exclude_entities
   critical_entities: !input critical_entities
   is_critical: "{{ entity_id in critical_entities }}"
@@ -221,8 +223,9 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {{ trigger.event.data.new_state is not none
-         and trigger.event.data.old_state is not none
+      {{ new_state is not none
+         and old_state is not none
+         and old_state.state is defined
          and (is_offline or is_online)
          and 'mqtt' in (device_attr(entity_id, 'identifiers') | string | lower)
          and entity_id not in exclude_entities }}
