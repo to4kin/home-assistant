@@ -147,6 +147,14 @@ blueprint:
           selector:
             duration:
 
+        notify_message_still_offline:
+          name: 🔁 Notification Message (Still Offline)
+          description: >
+            Message for repeat notifications. Use {{ device_name }} for the device name.
+          default: "{{ device_name }} is still offline!"
+          selector:
+            text:
+
         notify_back_online:
           name: ✅ Notify When Back Online
           description: Send notification when device comes back online.
@@ -195,6 +203,7 @@ variables:
   notify_devices: !input notify_devices
   notify_title: !input notify_title
   notify_msg_offline: !input notify_message
+  notify_msg_still_offline: !input notify_message_still_offline
   notify_msg_online: !input notify_message_online
   notify_back_online: !input notify_back_online
   enable_persistent: !input enable_persistent
@@ -299,7 +308,7 @@ action:
                       - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                         data:
                           title: "{{ '🚨 ' if is_critical else '' }}{{ notify_title }} (Still Offline)"
-                          message: "{{ device_name }} is still offline!"
+                          message: "{{ notify_msg_still_offline }}"
                         continue_on_error: true
 
       # Device came back ONLINE
