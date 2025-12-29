@@ -5,7 +5,7 @@ blueprint:
     min_version: "2024.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/preheat-toogle-control.yaml
   description: >
-    **Version**: 1.1.0
+    **Version**: 1.2.0
 
 
     Manages a preheat toggle for on-the-way-home heating.
@@ -16,113 +16,137 @@ blueprint:
     Supports outside temperature threshold to prevent enables during warm weather.
   domain: automation
   input:
-    preheat_toggle:
-      name: Preheat Toggle
-      description: The input boolean used to trigger preheat mode when on the way home.
-      selector:
-        entity:
-          filter:
-            - domain: input_boolean
+    # Main Settings
+    main_section:
+      name: Main Settings
+      icon: mdi:fire
+      collapsed: false
+      input:
+        preheat_toggle:
+          name: 🔥 Preheat Toggle
+          description: The input boolean used to trigger preheat mode when on the way home.
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
 
-    input_persons:
-      name: 👥 Persons
-      description: >
-        Select persons to track for presence detection.
-        Preheat will be disabled when any of these persons are home.
-      default: []
-      selector:
-        entity:
-          filter:
-            - domain: person
-          multiple: true
+        timeout_duration:
+          name: ⏰ Preheat Timeout
+          description: Automatically disable preheat after this duration if still enabled.
+          default:
+            hours: 2
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
 
-    input_arrival_delay:
-      name: 🏠 Arrival Delay
-      description: >
-        Wait this duration after someone arrives before disabling preheat.
-        Helps prevent false triggers from GPS drift.
-      default:
-        hours: 0
-        minutes: 0
-        seconds: 30
-      selector:
-        duration:
+    # Presence Detection
+    presence_section:
+      name: Presence Detection
+      icon: mdi:home-account
+      collapsed: true
+      input:
+        input_persons:
+          name: 👥 Persons
+          description: >
+            Select persons to track for presence detection.
+            Preheat will be disabled when any of these persons are home.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: person
+              multiple: true
 
-    timeout_duration:
-      name: ⏰ Preheat Timeout
-      description: Automatically disable preheat after this duration if still enabled.
-      default:
-        hours: 2
-        minutes: 0
-        seconds: 0
-      selector:
-        duration:
+        input_arrival_delay:
+          name: ⏱️ Arrival Delay
+          description: >
+            Wait this duration after someone arrives before disabling preheat.
+            Helps prevent false triggers from GPS drift.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 30
+          selector:
+            duration:
 
-    input_auto_enable_on_leave:
-      name: 🚶 Auto-enable When Leaving
-      description: >
-        Automatically enable preheat when everyone leaves home.
-        Useful for routine departures.
-      default: false
-      selector:
-        boolean:
+        input_auto_enable_on_leave:
+          name: 👋 Auto-enable When Leaving
+          description: >
+            Automatically enable preheat when everyone leaves home.
+            Useful for routine departures.
+          default: false
+          selector:
+            boolean:
 
-    input_leaving_delay:
-      name: 💨 Leaving Delay
-      description: >
-        Wait this duration after everyone leaves before enabling preheat.
-        Helps prevent false triggers from GPS drift.
-      default:
-        hours: 0
-        minutes: 0
-        seconds: 30
-      selector:
-        duration:
+        input_leaving_delay:
+          name: ⏱️ Leaving Delay
+          description: >
+            Wait this duration after everyone leaves before enabling preheat.
+            Helps prevent false triggers from GPS drift.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 30
+          selector:
+            duration:
 
-    input_outside_temperature:
-      name: 🌡️ Outside Temperature Sensor
-      description: >
-        Optional. If outside temperature is above the threshold,
-        preheat will be blocked (summer mode).
-        Supports current temperature or forecast sensors.
-      default: []
-      selector:
-        entity:
-          filter:
-            - domain:
-                - weather
-            - domain:
-                - sensor
-              device_class: temperature
+    # Temperature Control
+    temperature_section:
+      name: Temperature Control
+      icon: mdi:sun-thermometer
+      collapsed: true
+      input:
+        input_outside_temperature:
+          name: 🌤️ Outside Temperature Sensor
+          description: >
+            Optional. If outside temperature is above the threshold,
+            preheat will be blocked (summer mode).
+            Supports current temperature or forecast sensors.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain:
+                    - weather
+                - domain:
+                    - sensor
+                  device_class: temperature
 
-    input_outside_temperature_threshold:
-      name: 🌡️ Temperature Threshold
-      description: >
-        Preheat is blocked when outside temperature is above this value.
-      default: 15
-      selector:
-        number:
-          min: 0
-          max: 30
-          step: 1
-          unit_of_measurement: "°C"
+        input_outside_temperature_threshold:
+          name: 🌡 Temperature Threshold
+          description: >
+            Preheat is blocked when outside temperature is above this value.
+          default: 15
+          selector:
+            number:
+              min: 0
+              max: 30
+              step: 1
+              unit_of_measurement: "°C"
 
-    notify_devices:
-      name: 📱 Notification Devices
-      description: Select mobile devices to receive notifications. Leave empty to disable notifications.
-      default: []
-      selector:
-        device:
-          filter:
-            - integration: mobile_app
-          multiple: true
+    # Notifications
+    notification_section:
+      name: Notifications
+      icon: mdi:cellphone-message
+      collapsed: true
+      input:
+        notify_devices:
+          name: 📲 Notification Devices
+          description: Select mobile devices to receive notifications. Leave empty to disable notifications.
+          default: []
+          selector:
+            device:
+              filter:
+                - integration: mobile_app
+              multiple: true
 
-    notify_title:
-      name: 📝 Notification Title
-      description: Title for mobile notifications.
-      default: "Preheat Control"
-      selector:
-        text:
+        notify_title:
+          name: ✏️ Notification Title
+          description: Title for mobile notifications.
+          default: "Preheat Control"
+          selector:
+            text:
 
 variables:
   preheat_toggle: !input preheat_toggle
