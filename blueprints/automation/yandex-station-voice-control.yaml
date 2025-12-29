@@ -1,0 +1,280 @@
+blueprint:
+  name: Yandex Station Voice Control
+  author: to4kin
+  homeassistant:
+    min_version: "2025.1.0"
+  source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/yandex-station-voice-control.yaml
+  description: >
+    **Version**: 1.0.0
+
+
+    Control any entity using voice commands from Yandex Station.
+    Configure custom commands for turning on, off, or toggle.
+    Supports multiple entities, notifications, and TTS confirmation.
+
+
+    **Requires**: [Yandex Station](https://github.com/AlexxIT/YandexStation) integration (HACS).
+  domain: automation
+  input:
+    # Main Settings
+    main_section:
+      name: Main Settings
+      icon: mdi:target
+      collapsed: false
+      input:
+        target_entities:
+          name: 🎯 Target Entities
+          description: >
+            The entities to control with voice commands.
+            Supports switch, light, fan, cover, script, etc.
+          selector:
+            entity:
+              multiple: true
+
+    # Voice Commands
+    voice_section:
+      name: Voice Commands
+      icon: mdi:microphone
+      collapsed: false
+      input:
+        turn_on_command:
+          name: ▶️ Turn On Command
+          description: >
+            Optional. The command from Yandex Station that will turn on the entities.
+            Leave empty to disable.
+          default: ""
+          selector:
+            text:
+
+        turn_off_command:
+          name: ⏹️ Turn Off Command
+          description: >
+            Optional. The command from Yandex Station that will turn off the entities.
+            Leave empty to disable.
+          default: ""
+          selector:
+            text:
+
+        toggle_command:
+          name: 🔁 Toggle Command
+          description: >
+            Optional. The command from Yandex Station that will toggle the entities.
+            Leave empty to disable.
+          default: ""
+          selector:
+            text:
+
+    # Notifications
+    notification_section:
+      name: Notifications
+      icon: mdi:cellphone-message
+      collapsed: true
+      input:
+        notify_devices:
+          name: 📲 Notification Devices
+          description: >
+            Optional. Select mobile devices to receive notifications.
+            Leave empty to disable.
+          default: []
+          selector:
+            device:
+              filter:
+                - integration: mobile_app
+              multiple: true
+
+    # TTS Confirmation
+    tts_section:
+      name: TTS Confirmation
+      icon: mdi:account-voice
+      collapsed: true
+      input:
+        tts_entity:
+          name: 🔊 Yandex Station for TTS
+          description: >
+            Optional. Select Yandex Station media player for voice confirmation.
+            Leave empty to disable.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: media_player
+
+        tts_confirm_on:
+          name: ▶️ Confirmation Message (On)
+          description: Message to speak when turning on.
+          default: "Turned on"
+          selector:
+            text:
+
+        tts_confirm_off:
+          name: ⏹️ Confirmation Message (Off)
+          description: Message to speak when turning off.
+          default: "Turned off"
+          selector:
+            text:
+
+        tts_confirm_toggle:
+          name: 🔁 Confirmation Message (Toggle)
+          description: Message to speak when toggling.
+          default: "Toggled"
+          selector:
+            text:
+
+variables:
+  target_entities: !input target_entities
+  notify_devices: !input notify_devices
+  tts_entity: !input tts_entity
+  tts_confirm_on: !input tts_confirm_on
+  tts_confirm_off: !input tts_confirm_off
+  tts_confirm_toggle: !input tts_confirm_toggle
+  turn_on_cmd: !input turn_on_command
+  turn_off_cmd: !input turn_off_command
+  toggle_cmd: !input toggle_command
+  has_notify: "{{ notify_devices | length > 0 }}"
+  has_tts: "{{ tts_entity != [] and tts_entity != '' }}"
+  entity_names: >
+    {{ target_entities | map('state_attr', 'friendly_name') | select('string') | join(', ') }}
+
+trigger:
+  - platform: event
+    event_type: yandex_speaker
+    id: turn_on
+
+  - platform: event
+    event_type: yandex_speaker
+    id: turn_off
+
+  - platform: event
+    event_type: yandex_speaker
+    id: toggle
+
+condition:
+  - condition: or
+    conditions:
+      - condition: and
+        conditions:
+          - condition: trigger
+            id: turn_on
+          - condition: template
+            value_template: "{{ turn_on_cmd != '' and trigger.event.data.value == turn_on_cmd }}"
+      - condition: and
+        conditions:
+          - condition: trigger
+            id: turn_off
+          - condition: template
+            value_template: "{{ turn_off_cmd != '' and trigger.event.data.value == turn_off_cmd }}"
+      - condition: and
+        conditions:
+          - condition: trigger
+            id: toggle
+          - condition: template
+            value_template: "{{ toggle_cmd != '' and trigger.event.data.value == toggle_cmd }}"
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ turn_on_cmd != '' and trigger.event.data.value == turn_on_cmd }}"
+        sequence:
+          - action: homeassistant.turn_on
+            target:
+              entity_id: !input target_entities
+          - action: logbook.log
+            data:
+              name: "Yandex Station"
+              message: "Turned on {{ entity_names }}"
+          - if:
+              - condition: template
+                value_template: "{{ has_tts }}"
+            then:
+              - action: media_player.play_media
+                target:
+                  entity_id: "{{ tts_entity }}"
+                data:
+                  media_content_id: "{{ tts_confirm_on }}"
+                  media_content_type: "text"
+                continue_on_error: true
+          - if:
+              - condition: template
+                value_template: "{{ has_notify }}"
+            then:
+              - repeat:
+                  for_each: !input notify_devices
+                  sequence:
+                    - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                      data:
+                        title: "Yandex Station"
+                        message: "Turned on {{ entity_names }}"
+                      continue_on_error: true
+
+      - conditions:
+          - condition: template
+            value_template: "{{ turn_off_cmd != '' and trigger.event.data.value == turn_off_cmd }}"
+        sequence:
+          - action: homeassistant.turn_off
+            target:
+              entity_id: !input target_entities
+          - action: logbook.log
+            data:
+              name: "Yandex Station"
+              message: "Turned off {{ entity_names }}"
+          - if:
+              - condition: template
+                value_template: "{{ has_tts }}"
+            then:
+              - action: media_player.play_media
+                target:
+                  entity_id: "{{ tts_entity }}"
+                data:
+                  media_content_id: "{{ tts_confirm_off }}"
+                  media_content_type: "text"
+                continue_on_error: true
+          - if:
+              - condition: template
+                value_template: "{{ has_notify }}"
+            then:
+              - repeat:
+                  for_each: !input notify_devices
+                  sequence:
+                    - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                      data:
+                        title: "Yandex Station"
+                        message: "Turned off {{ entity_names }}"
+                      continue_on_error: true
+
+      - conditions:
+          - condition: template
+            value_template: "{{ toggle_cmd != '' and trigger.event.data.value == toggle_cmd }}"
+        sequence:
+          - action: homeassistant.toggle
+            target:
+              entity_id: !input target_entities
+          - action: logbook.log
+            data:
+              name: "Yandex Station"
+              message: "Toggled {{ entity_names }}"
+          - if:
+              - condition: template
+                value_template: "{{ has_tts }}"
+            then:
+              - action: media_player.play_media
+                target:
+                  entity_id: "{{ tts_entity }}"
+                data:
+                  media_content_id: "{{ tts_confirm_toggle }}"
+                  media_content_type: "text"
+                continue_on_error: true
+          - if:
+              - condition: template
+                value_template: "{{ has_notify }}"
+            then:
+              - repeat:
+                  for_each: !input notify_devices
+                  sequence:
+                    - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                      data:
+                        title: "Yandex Station"
+                        message: "Toggled {{ entity_names }}"
+                      continue_on_error: true
+
+mode: single
