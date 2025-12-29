@@ -223,7 +223,7 @@ blueprint:
             {{ room_name }} - area name (or friendly name if no area),
             {{ humidity }} - current humidity %,
             {{ threshold }} - configured threshold %.
-          default: "Humidity in {{ room_name }} is {{ humidity }}% (threshold: {{ threshold }}%). Consider opening a window for ventilation."
+          default: "Humidity in {{ room_name | default('room') }} is {{ humidity | default('?') }}% (threshold: {{ threshold | default('?') }}%). Consider opening a window for ventilation."
           selector:
             text:
               multiline: true
@@ -254,7 +254,7 @@ blueprint:
             {{ room_name }} - area name (or friendly name if no area),
             {{ humidity }} - current humidity %,
             {{ threshold }} - configured threshold %.
-          default: "Humidity in {{ room_name }} is back to normal ({{ humidity }}%)."
+          default: "Humidity in {{ room_name | default('room') }} is back to normal ({{ humidity | default('?') }}%)."
           selector:
             text:
               multiline: true
@@ -293,7 +293,7 @@ blueprint:
             {{ humidity }} - current humidity %,
             {{ threshold }} - configured threshold %.
             Note: Use Russian for Yandex Station TTS.
-          default: "Attention! Humidity in {{ room_name }} is {{ humidity }} percent. Consider opening a window for ventilation."
+          default: "Attention! Humidity in {{ room_name | default('room') }} is {{ humidity | default('?') }} percent. Consider opening a window for ventilation."
           selector:
             text:
               multiline: true
