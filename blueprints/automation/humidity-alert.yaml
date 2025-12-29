@@ -1,0 +1,502 @@
+blueprint:
+  name: Humidity Alert
+  author: to4kin
+  homeassistant:
+    min_version: "2025.1.0"
+  source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/humidity-alert.yaml
+  description: |
+    **Version**: 1.0.0
+
+    Monitors humidity sensors and sends alerts when humidity exceeds threshold.
+
+    **Features**:
+    - Monitor multiple humidity sensors
+    - Room detection from sensor area/friendly name
+    - Configurable humidity threshold (default: 60%)
+    - Cooldown between alerts (default: 1 hour)
+    - Outside humidity/temperature/rain checks (optional)
+    - Presence awareness (optional)
+    - Time-based filtering (optional)
+    - Mobile notifications
+    - "Humidity normalized" notification (optional)
+    - TTS confirmation (optional)
+    - Logbook entries (optional)
+
+    **Requires**: Assign humidity sensors to areas in Home Assistant for automatic room detection.
+  domain: automation
+  input:
+    # Main Settings
+    main_section:
+      name: Main Settings
+      icon: mdi:water-percent
+      collapsed: false
+      input:
+        humidity_sensors:
+          name: 💧 Humidity Sensors
+          description: >
+            Select humidity sensors to monitor.
+            Each sensor should be assigned to an area for room detection.
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: humidity
+              multiple: true
+
+        humidity_threshold:
+          name: 📊 Humidity Threshold
+          description: >
+            Alert when humidity exceeds this value (%).
+          default: 60
+          selector:
+            number:
+              min: 40
+              max: 90
+              step: 5
+              unit_of_measurement: "%"
+
+        humidity_hysteresis:
+          name: 📉 Hysteresis
+          description: >
+            Humidity must drop this much below threshold before a new alert can be sent.
+            Prevents alert spam when humidity fluctuates around threshold.
+          default: 5
+          selector:
+            number:
+              min: 0
+              max: 20
+              step: 1
+              unit_of_measurement: "%"
+
+        cooldown:
+          name: ⏱️ Cooldown Period
+          description: >
+            Minimum time between alerts for the same room.
+          default:
+            hours: 1
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
+
+    # Weather Settings
+    weather_section:
+      name: Weather Settings
+      icon: mdi:weather-partly-cloudy
+      collapsed: true
+      input:
+        weather_entity:
+          name: 🌤️ Weather Entity (Optional)
+          description: >
+            Weather entity for outside conditions check.
+            Used to check rain, outside humidity, and temperature.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: weather
+
+        outside_humidity_sensor:
+          name: 💨 Outside Humidity Sensor (Optional)
+          description: >
+            Optional. Sensor for outside humidity.
+            If not set, will try to get from weather entity.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: humidity
+
+        outside_temp_sensor:
+          name: 🌡️ Outside Temperature Sensor (Optional)
+          description: >
+            Optional. Sensor for outside temperature.
+            If not set, will try to get from weather entity.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: temperature
+
+        min_outside_temp:
+          name: ❄️ Minimum Outside Temperature
+          description: >
+            Don't suggest opening windows if outside temperature is below this value.
+          default: -10
+          selector:
+            number:
+              min: -20
+              max: 20
+              step: 1
+              unit_of_measurement: "°C"
+
+        check_rain:
+          name: 🌧️ Check for Rain
+          description: >
+            Don't suggest opening windows if it's raining.
+          default: true
+          selector:
+            boolean:
+
+    # Presence Settings
+    presence_section:
+      name: Presence Settings
+      icon: mdi:account-group
+      collapsed: true
+      input:
+        presence_entities:
+          name: 👥 Presence Entities (Optional)
+          description: >
+            Person or device_tracker entities to check presence.
+            Alerts only sent when at least one person is home.
+            Leave empty to always send alerts.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain:
+                    - person
+                    - device_tracker
+              multiple: true
+
+    # Time Filter
+    time_section:
+      name: Time Filter
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        enable_time_filter:
+          name: 🕔 Enable Time Filter (Optional)
+          description: >
+            Only send alerts during specified hours.
+          default: false
+          selector:
+            boolean:
+
+        time_start:
+          name: ☀️ Alert Start Time
+          description: >
+            Start sending alerts at this time.
+          default: "08:00:00"
+          selector:
+            time:
+
+        time_end:
+          name: 🌙 Alert End Time
+          description: >
+            Stop sending alerts at this time.
+          default: "22:00:00"
+          selector:
+            time:
+
+    # Notifications
+    notification_section:
+      name: Notifications
+      icon: mdi:cellphone-message
+      collapsed: false
+      input:
+        notify_devices:
+          name: 📲 Notification Devices
+          description: >
+            Mobile devices to send notifications to.
+          default: []
+          selector:
+            device:
+              filter:
+                - integration: mobile_app
+              multiple: true
+
+        notify_title:
+          name: ✏️ Notification Title
+          description: >
+            Title for the notification.
+          default: "High Humidity Alert"
+          selector:
+            text:
+
+        notify_message:
+          name: 💬 Notification Message
+          description: >
+            Message template. Available variables:
+            {{ device_name }} - sensor friendly name,
+            {{ entity_id }} - sensor entity ID,
+            {{ room_name }} - area name (or friendly name if no area),
+            {{ humidity }} - current humidity %,
+            {{ threshold }} - configured threshold %.
+          default: "Humidity in {{ room_name }} is {{ humidity }}% (threshold: {{ threshold }}%). Consider opening a window for ventilation."
+          selector:
+            text:
+              multiline: true
+
+        notify_message_weather:
+          name: 🌤️ Weather Advisory Message
+          description: >
+            Additional message when weather conditions are not ideal for opening windows.
+          default: "⚠️ Note: Current weather conditions may not be ideal for ventilation."
+          selector:
+            text:
+              multiline: true
+
+        notify_normalized:
+          name: ✅ Notify When Normalized (Optional)
+          description: >
+            Send notification when humidity returns to normal level.
+          default: false
+          selector:
+            boolean:
+
+        notify_message_normalized:
+          name: 💬 Normalized Message
+          description: >
+            Message when humidity returns to normal. Available variables:
+            {{ device_name }} - sensor friendly name,
+            {{ entity_id }} - sensor entity ID,
+            {{ room_name }} - area name (or friendly name if no area),
+            {{ humidity }} - current humidity %,
+            {{ threshold }} - configured threshold %.
+          default: "Humidity in {{ room_name }} is back to normal ({{ humidity }}%)."
+          selector:
+            text:
+              multiline: true
+
+    # TTS Confirmation
+    tts_section:
+      name: TTS Confirmation
+      icon: mdi:account-voice
+      collapsed: true
+      input:
+        enable_tts:
+          name: 🔊 Enable TTS (Optional)
+          description: >
+            Announce alerts via Yandex Station.
+          default: false
+          selector:
+            boolean:
+
+        tts_target:
+          name: 🎙️ TTS Target
+          description: >
+            Required when TTS is enabled. Yandex Station media player for TTS announcements.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: media_player
+
+        tts_message:
+          name: 💬 TTS Message
+          description: >
+            TTS message template. Available variables:
+            {{ device_name }} - sensor friendly name,
+            {{ entity_id }} - sensor entity ID,
+            {{ room_name }} - area name (or friendly name if no area),
+            {{ humidity }} - current humidity %,
+            {{ threshold }} - configured threshold %.
+            Note: Use Russian for Yandex Station TTS.
+          default: "Attention! Humidity in {{ room_name }} is {{ humidity }} percent. Consider opening a window for ventilation."
+          selector:
+            text:
+              multiline: true
+
+    # Logging
+    logging_section:
+      name: Logging
+      icon: mdi:notebook-outline
+      collapsed: true
+      input:
+        enable_logbook:
+          name: 📓 Enable Logbook
+          description: Log humidity alerts to Home Assistant logbook.
+          default: true
+          selector:
+            boolean:
+
+variables:
+  humidity_sensors: !input humidity_sensors
+  humidity_threshold: !input humidity_threshold
+  humidity_hysteresis: !input humidity_hysteresis
+  weather_entity: !input weather_entity
+  outside_humidity_sensor: !input outside_humidity_sensor
+  outside_temp_sensor: !input outside_temp_sensor
+  min_outside_temp: !input min_outside_temp
+  check_rain: !input check_rain
+  presence_entities: !input presence_entities
+  notify_devices: !input notify_devices
+  notify_title: !input notify_title
+  notify_msg: !input notify_message
+  notify_msg_weather: !input notify_message_weather
+  notify_normalized: !input notify_normalized
+  notify_msg_normalized: !input notify_message_normalized
+  enable_tts: !input enable_tts
+  tts_target: !input tts_target
+  tts_message: !input tts_message
+  cooldown: !input cooldown
+  enable_time_filter: !input enable_time_filter
+  time_start: !input time_start
+  time_end: !input time_end
+  enable_logbook: !input enable_logbook
+  # Derived variables
+  entity_id: "{{ trigger.entity_id }}"
+  device_name: "{{ state_attr(entity_id, 'friendly_name') | default(entity_id) }}"
+  current_humidity: "{{ trigger.to_state.state | float(0) }}"
+  previous_humidity: "{{ trigger.from_state.state | float(0) }}"
+  room_name: >
+    {% set area = area_name(entity_id) %}
+    {% if area %}
+      {{ area }}
+    {% else %}
+      {{ state_attr(entity_id, 'friendly_name') | default(entity_id) | regex_replace(' [Hh]umidity.*', '') }}
+    {% endif %}
+  is_high: "{{ current_humidity > humidity_threshold }}"
+  was_high: "{{ previous_humidity > humidity_threshold }}"
+  is_normalized: "{{ current_humidity <= (humidity_threshold - humidity_hysteresis) and was_high }}"
+  crossed_threshold: "{{ is_high and not was_high }}"
+  # Weather checks
+  outside_humidity: >
+    {% if outside_humidity_sensor %}
+      {{ states(outside_humidity_sensor) | float(0) }}
+    {% elif weather_entity %}
+      {{ state_attr(weather_entity, 'humidity') | float(0) }}
+    {% else %}
+      0
+    {% endif %}
+  outside_temp: >
+    {% if outside_temp_sensor %}
+      {{ states(outside_temp_sensor) | float(0) }}
+    {% elif weather_entity %}
+      {{ state_attr(weather_entity, 'temperature') | float(20) }}
+    {% else %}
+      20
+    {% endif %}
+  is_raining: >
+    {% if weather_entity and check_rain %}
+      {{ states(weather_entity) in ['rainy', 'pouring', 'snowy', 'snowy-rainy', 'hail', 'lightning-rainy'] }}
+    {% else %}
+      false
+    {% endif %}
+  weather_ok: >
+    {{ outside_humidity < current_humidity 
+       and outside_temp >= min_outside_temp 
+       and not is_raining }}
+  # Presence check
+  anyone_home: >
+    {% if presence_entities | length == 0 %}
+      true
+    {% else %}
+      {{ presence_entities | expand | selectattr('state', 'eq', 'home') | list | count > 0 }}
+    {% endif %}
+  # Cooldown tracking
+  cooldown_seconds: "{{ cooldown.hours * 3600 + cooldown.minutes * 60 + cooldown.seconds }}"
+
+trigger:
+  - platform: state
+    entity_id: !input humidity_sensors
+    id: humidity_change
+
+condition:
+  # Must be a valid humidity value
+  - condition: template
+    value_template: "{{ current_humidity > 0 }}"
+
+action:
+  - choose:
+      # Humidity crossed threshold (going HIGH)
+      - conditions:
+          - condition: template
+            value_template: "{{ crossed_threshold }}"
+        sequence:
+          # Check presence
+          - condition: template
+            value_template: "{{ anyone_home }}"
+          # Check time filter
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ not enable_time_filter }}"
+              - condition: time
+                after: !input time_start
+                before: !input time_end
+          # Logbook
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Humidity Alert"
+                  message: "{{ room }}: {{ current_humidity }}% (threshold: {{ humidity_threshold }}%){{ ' - Weather OK' if weather_ok else ' - Weather not ideal' }}"
+          # Mobile notifications
+          - repeat:
+              for_each: !input notify_devices
+              sequence:
+                - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                  data:
+                    title: "💧 {{ notify_title }}"
+                    message: >
+                      {{ notify_msg | replace('{{ room }}', room) | replace('{{ humidity }}', current_humidity | string) | replace('{{ threshold }}', humidity_threshold | string) }}
+                      {% if not weather_ok %}
+
+                      {{ notify_msg_weather }}
+                      {% endif %}
+                    data:
+                      tag: "humidity_alert_{{ entity_id | slugify }}"
+                      group: "humidity_alerts"
+                  continue_on_error: true
+          # TTS announcement
+          - if:
+              - condition: template
+                value_template: "{{ enable_tts and tts_target }}"
+            then:
+              - action: media_player.play_media
+                target:
+                  entity_id: "{{ tts_target }}"
+                data:
+                  media_content_id: >
+                    {{ tts_message | replace('{{ room }}', room) | replace('{{ humidity }}', current_humidity | string) }}
+                  media_content_type: text
+                  extra:
+                    volume_level: 0.5
+
+      # Humidity normalized (dropped below threshold - hysteresis)
+      - conditions:
+          - condition: template
+            value_template: "{{ is_normalized and notify_normalized }}"
+        sequence:
+          # Check presence
+          - condition: template
+            value_template: "{{ anyone_home }}"
+          # Check time filter
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ not enable_time_filter }}"
+              - condition: time
+                after: !input time_start
+                before: !input time_end
+          # Logbook
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Humidity Normal"
+                  message: "{{ room }}: {{ current_humidity }}% - Back to normal"
+          # Mobile notifications
+          - repeat:
+              for_each: !input notify_devices
+              sequence:
+                - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                  data:
+                    title: "✅ Humidity Normal"
+                    message: >
+                      {{ notify_msg_normalized | replace('{{ room }}', room) | replace('{{ humidity }}', current_humidity | string) }}
+                    data:
+                      tag: "humidity_alert_{{ entity_id | slugify }}"
+                      group: "humidity_alerts"
+                  continue_on_error: true
+
+mode: parallel
+max: 10

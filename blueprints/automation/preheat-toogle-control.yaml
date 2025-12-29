@@ -5,21 +5,21 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/preheat-toogle-control.yaml
   description: |
-    **Version**: 1.2.0
+    **Version**: 1.3.0
 
     Manages a preheat toggle for on-the-way-home heating.
-    Automatically disables preheat when someone arrives home,
-    prevents activation while family members are present,
-    and includes a configurable safety timeout.
 
     **Features**:
+    - Configurable safety timeout (default: 2 hours)
+    - Outside temperature threshold, summer mode (optional)
     - Auto-disable when family arrives home
     - Block enabling if someone is already home
-    - Configurable arrival/leaving delays
+    - Configurable arrival/leaving delays (default: 30 seconds)
     - Auto-enable when everyone leaves (optional)
-    - Outside temperature threshold (summer mode)
-    - Mobile notifications
+    - Mobile notifications (optional)
     - Logbook entries (optional)
+
+    **Requires**: Create an `input_boolean` helper for the preheat toggle.
 
     **Usage with AHC**: Add your preheat toggle to the [Advanced Heating Control](https://github.com/panhans/HomeAssistant/blob/main/blueprints/automation/panhans/advanced_heating_control.yaml) blueprint in the **Force Comfort/Eco Mode** → **🎈 Party mode** input.
   domain: automation
@@ -48,10 +48,44 @@ blueprint:
           selector:
             duration:
 
-    # Presence Detection
+    # Temperature Control
+    temperature_section:
+      name: Temperature Control
+      icon: mdi:sun-thermometer
+      collapsed: true
+      input:
+        input_outside_temperature:
+          name: 🌤️ Outside Temperature Sensor (Optional)
+          description: >
+            Optional. If outside temperature is above the threshold,
+            preheat will be blocked (summer mode).
+            Supports current temperature or forecast sensors.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain:
+                    - weather
+                - domain:
+                    - sensor
+                  device_class: temperature
+
+        input_outside_temperature_threshold:
+          name: 🌡 Temperature Threshold
+          description: >
+            Preheat is blocked when outside temperature is above this value.
+          default: 15
+          selector:
+            number:
+              min: 0
+              max: 30
+              step: 1
+              unit_of_measurement: "°C"
+
+    # Presence Settings
     presence_section:
-      name: Presence Detection
-      icon: mdi:home-account
+      name: Presence Settings
+      icon: mdi:account-group
       collapsed: true
       input:
         input_persons:
@@ -79,7 +113,7 @@ blueprint:
             duration:
 
         input_auto_enable_on_leave:
-          name: 👋 Auto-enable When Leaving
+          name: 👋 Auto-enable When Leaving (Optional)
           description: >
             Automatically enable preheat when everyone leaves home.
             Useful for routine departures.
@@ -99,40 +133,6 @@ blueprint:
           selector:
             duration:
 
-    # Temperature Control
-    temperature_section:
-      name: Temperature Control
-      icon: mdi:sun-thermometer
-      collapsed: true
-      input:
-        input_outside_temperature:
-          name: 🌤️ Outside Temperature Sensor
-          description: >
-            Optional. If outside temperature is above the threshold,
-            preheat will be blocked (summer mode).
-            Supports current temperature or forecast sensors.
-          default: []
-          selector:
-            entity:
-              filter:
-                - domain:
-                    - weather
-                - domain:
-                    - sensor
-                  device_class: temperature
-
-        input_outside_temperature_threshold:
-          name: 🌡 Temperature Threshold
-          description: >
-            Preheat is blocked when outside temperature is above this value.
-          default: 15
-          selector:
-            number:
-              min: 0
-              max: 30
-              step: 1
-              unit_of_measurement: "°C"
-
     # Notifications
     notification_section:
       name: Notifications
@@ -140,8 +140,8 @@ blueprint:
       collapsed: true
       input:
         notify_devices:
-          name: 📲 Notification Devices
-          description: Select mobile devices to receive notifications. Leave empty to disable notifications.
+          name: 📲 Notification Devices (Optional)
+          description: Select mobile devices to receive notifications. Leave empty to disable.
           default: []
           selector:
             device:

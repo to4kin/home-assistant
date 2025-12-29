@@ -5,33 +5,33 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/z2m-device-offline-alert.yaml
   description: |
-    **Version**: 1.0.2
+    **Version**: 1.1.0
 
     Monitors Zigbee2MQTT devices and sends notifications when they go offline.
-    Includes a configurable delay to avoid false alerts from temporary disconnections.
 
     **Features**:
     - Monitors all Z2M devices automatically
-    - Exclude specific devices from monitoring
-    - Critical devices with shorter delay (bypass quiet hours)
-    - Time-based filtering (quiet hours)
-    - Repeat notifications for still-offline devices
     - Configurable delay before alerting (default: 30 minutes)
-    - Mobile and persistent notifications
-    - Optional back online notification
-    - Optional logbook entries
+    - Exclude specific devices from monitoring (optional)
+    - Critical devices with shorter delay, bypass quiet hours (optional)
+    - Time-based filtering (optional)
+    - Mobile notifications
+    - Repeat notifications for still-offline devices (optional)
+    - Persistent notifications (optional)
+    - Back online notification (optional)
+    - Logbook entries (optional)
 
     **Requires**: [Zigbee2MQTT](https://www.zigbee2mqtt.io/) integration.
   domain: automation
   input:
-    # Alert Settings
-    alert_section:
-      name: Alert Settings
-      icon: mdi:alert
+    # Main Settings
+    main_section:
+      name: Main Settings
+      icon: mdi:zigbee
       collapsed: false
       input:
         exclude_entities:
-          name: 🚫 Exclude Entities
+          name: 🚫 Exclude Entities (Optional)
           description: >
             Optional. Entities to exclude from monitoring.
             Useful for devices that frequently go offline.
@@ -59,7 +59,7 @@ blueprint:
       collapsed: true
       input:
         critical_entities:
-          name: 🚨 Critical Entities
+          name: 🚨 Critical Entities (Optional)
           description: >
             Optional. Critical devices that use shorter delay.
             These devices will alert faster and bypass quiet hours.
@@ -85,7 +85,7 @@ blueprint:
       collapsed: true
       input:
         enable_time_filter:
-          name: 🕔 Enable Quiet Hours
+          name: 🕔 Enable Time Filter (Optional)
           description: Only send alerts during specified time window.
           default: false
           selector:
@@ -130,13 +130,15 @@ blueprint:
         notify_message:
           name: 💬 Notification Message (Offline)
           description: >
-            Message template. Use {{ device_name }} for the device name.
+            Message template. Available variables:
+            {{ device_name }} - friendly name (or entity_id if not set),
+            {{ entity_id }} - entity ID.
           default: "{{ device_name }} is offline!"
           selector:
             text:
 
         repeat_notification:
-          name: 🔁 Repeat Notification
+          name: 🔁 Repeat Notification (Optional)
           description: >
             Optional. Re-send notification if device is still offline.
             Set to 0 to disable.
@@ -150,13 +152,15 @@ blueprint:
         notify_message_still_offline:
           name: 🔁 Notification Message (Still Offline)
           description: >
-            Message for repeat notifications. Use {{ device_name }} for the device name.
+            Message for repeat notifications. Available variables:
+            {{ device_name }} - friendly name (or entity_id if not set),
+            {{ entity_id }} - entity ID.
           default: "{{ device_name }} is still offline!"
           selector:
             text:
 
         notify_back_online:
-          name: ✅ Notify When Back Online
+          name: ✅ Notify When Back Online (Optional)
           description: Send notification when device comes back online.
           default: false
           selector:
@@ -165,13 +169,15 @@ blueprint:
         notify_message_online:
           name: ✅ Notification Message (Online)
           description: >
-            Message when device comes back online. Use {{ device_name }} for the device name.
+            Message when device comes back online. Available variables:
+            {{ device_name }} - friendly name (or entity_id if not set),
+            {{ entity_id }} - entity ID.
           default: "{{ device_name }} is back online!"
           selector:
             text:
 
         enable_persistent:
-          name: 📌 Persistent Notification
+          name: 📌 Persistent Notification (Optional)
           description: >
             Show persistent notification in HA UI until dismissed.
             Automatically dismissed when device comes back online.

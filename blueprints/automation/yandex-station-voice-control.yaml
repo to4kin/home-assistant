@@ -5,20 +5,19 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/yandex-station-voice-control.yaml
   description: |
-    **Version**: 1.1.0
+    **Version**: 1.2.0
 
     Control any entity using voice commands from Yandex Station.
-    Configure custom commands for turning on, off, or toggle.
 
     **Features**:
     - Control any entity (switch, light, fan, cover, script, etc.)
     - Multiple entities support
-    - Source station filtering (listen to specific stations only)
-    - Turn on, turn off, and toggle commands (all optional)
-    - Per-action delays (separate delay for on/off/toggle)
-    - Mobile notifications with custom title and messages
-    - TTS confirmation via Yandex Station (optional)
-    - Optional logbook entries
+    - Source station filtering (optional)
+    - Turn on, turn off, and toggle commands (optional)
+    - Per-action delays (optional)
+    - Mobile notifications (optional)
+    - TTS confirmation (optional)
+    - Logbook entries (optional)
 
     **Requires**: [Yandex Station](https://github.com/AlexxIT/YandexStation) integration (HACS).
   domain: automation
@@ -39,7 +38,7 @@ blueprint:
               multiple: true
 
         source_stations:
-          name: 🔊 Source Stations
+          name: 🔊 Source Stations (Optional)
           description: >
             Optional. Only listen to commands from these Yandex Stations.
             Leave empty to listen to all stations.
@@ -57,7 +56,7 @@ blueprint:
       collapsed: false
       input:
         turn_on_command:
-          name: ▶️ Turn On Command
+          name: ▶️ Turn On Command (Optional)
           description: >
             Optional. The command from Yandex Station that will turn on the entities.
             Leave empty to disable.
@@ -76,7 +75,7 @@ blueprint:
             duration:
 
         turn_off_command:
-          name: ⏹️ Turn Off Command
+          name: ⏹️ Turn Off Command (Optional)
           description: >
             Optional. The command from Yandex Station that will turn off the entities.
             Leave empty to disable.
@@ -95,7 +94,7 @@ blueprint:
             duration:
 
         toggle_command:
-          name: 🔁 Toggle Command
+          name: 🔁 Toggle Command (Optional)
           description: >
             Optional. The command from Yandex Station that will toggle the entities.
             Leave empty to disable.
@@ -120,9 +119,9 @@ blueprint:
       collapsed: true
       input:
         notify_devices:
-          name: 📲 Notification Devices
+          name: 📲 Notification Devices (Optional)
           description: >
-            Optional. Select mobile devices to receive notifications.
+            Select mobile devices to receive notifications.
             Leave empty to disable.
           default: []
           selector:
@@ -140,21 +139,30 @@ blueprint:
 
         notify_message_on:
           name: ▶️ Notification Message (On)
-          description: Custom notification message when turning on.
+          description: >
+            Custom notification message when turning on. Available variables:
+            {{ device_names }} - friendly names of target entities,
+            {{ entity_ids }} - entity IDs of target entities.
           default: "Turned on"
           selector:
             text:
 
         notify_message_off:
           name: ⏹️ Notification Message (Off)
-          description: Custom notification message when turning off.
+          description: >
+            Custom notification message when turning off. Available variables:
+            {{ device_names }} - friendly names of target entities,
+            {{ entity_ids }} - entity IDs of target entities.
           default: "Turned off"
           selector:
             text:
 
         notify_message_toggle:
           name: 🔁 Notification Message (Toggle)
-          description: Custom notification message when toggling.
+          description: >
+            Custom notification message when toggling. Available variables:
+            {{ device_names }} - friendly names of target entities,
+            {{ entity_ids }} - entity IDs of target entities.
           default: "Toggled"
           selector:
             text:
@@ -166,9 +174,9 @@ blueprint:
       collapsed: true
       input:
         tts_entity:
-          name: 🗣️ Yandex Station for TTS
+          name: 🗣️ Yandex Station for TTS (Optional)
           description: >
-            Optional. Select Yandex Station media player for voice confirmation.
+            Select Yandex Station media player for voice confirmation.
             Leave empty to disable.
           default: []
           selector:
@@ -178,21 +186,33 @@ blueprint:
 
         tts_confirm_on:
           name: ▶️ Confirmation Message (On)
-          description: Message to speak when turning on.
+          description: >
+            Message to speak when turning on. Available variables:
+            {{ device_names }} - friendly names of target entities,
+            {{ entity_ids }} - entity IDs of target entities.
+            Note: Use Russian for Yandex Station TTS.
           default: "Turned on"
           selector:
             text:
 
         tts_confirm_off:
           name: ⏹️ Confirmation Message (Off)
-          description: Message to speak when turning off.
+          description: >
+            Message to speak when turning off. Available variables:
+            {{ device_names }} - friendly names of target entities,
+            {{ entity_ids }} - entity IDs of target entities.
+            Note: Use Russian for Yandex Station TTS.
           default: "Turned off"
           selector:
             text:
 
         tts_confirm_toggle:
           name: 🔁 Confirmation Message (Toggle)
-          description: Message to speak when toggling.
+          description: >
+            Message to speak when toggling. Available variables:
+            {{ device_names }} - friendly names of target entities,
+            {{ entity_ids }} - entity IDs of target entities.
+            Note: Use Russian for Yandex Station TTS.
           default: "Toggled"
           selector:
             text:
@@ -231,8 +251,10 @@ variables:
   has_source_filter: "{{ source_stations | length > 0 }}"
   event_entity: "{{ trigger.event.data.entity_id | default('') }}"
   is_valid_source: "{{ not has_source_filter or event_entity in source_stations }}"
-  entity_names: >
+  device_names: >
     {{ target_entities | map('state_attr', 'friendly_name') | select('string') | join(', ') }}
+  entity_ids: >
+    {{ target_entities | join(', ') }}
 
 trigger:
   - platform: event

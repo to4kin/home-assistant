@@ -10,17 +10,20 @@ My Home Assistant blueprints and configurations.
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fto4kin%2Fhome-assistant%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fpreheat-toogle-control.yaml)
 
-Manages a preheat toggle for on-the-way-home heating. Automatically disables preheat when someone arrives home, prevents activation while family members are present, and includes a configurable safety timeout.
+Manages a preheat toggle for on-the-way-home heating.
 
 **Features:**
 
+- Configurable safety timeout (default: 2 hours)
+- Outside temperature threshold, summer mode (optional)
 - Auto-disable when family arrives home
 - Block enabling if someone is already home
-- Configurable arrival/leaving delays
+- Configurable arrival/leaving delays (default: 30 seconds)
 - Auto-enable when everyone leaves (optional)
-- Outside temperature threshold (summer mode)
-- Mobile notifications
-- Logbook entries
+- Mobile notifications (optional)
+- Logbook entries (optional)
+
+**Requires:** Create an `input_boolean` helper for the preheat toggle.
 
 **Usage with AHC:** Add your preheat toggle to the [Advanced Heating Control](https://github.com/panhans/HomeAssistant/blob/main/blueprints/automation/panhans/advanced_heating_control.yaml) blueprint in the **Force Comfort/Eco Mode** → **🎈 Party mode** input.
 
@@ -36,12 +39,12 @@ Control any entity using voice commands from Yandex Station.
 
 - Control any entity (switch, light, fan, cover, script, etc.)
 - Multiple entities support
-- Turn on, turn off, and toggle commands (all optional)
-- Source station filtering (listen to specific stations only)
-- Per-action delays (separate delay for on/off/toggle)
-- Mobile notifications with custom title and messages
-- TTS confirmation via Yandex Station (optional)
-- Optional logbook entries
+- Source station filtering (optional)
+- Turn on, turn off, and toggle commands (optional)
+- Per-action delays (optional)
+- Mobile notifications (optional)
+- TTS confirmation (optional)
+- Logbook entries (optional)
 
 **Requires:** [Yandex Station](https://github.com/AlexxIT/YandexStation) integration (HACS).
 
@@ -56,13 +59,38 @@ Monitors Zigbee2MQTT devices and sends notifications when they go offline.
 **Features:**
 
 - Monitors all Z2M devices automatically
-- Exclude specific devices from monitoring
-- Critical devices with shorter delay (bypass quiet hours)
-- Time-based filtering (quiet hours)
-- Repeat notifications for still-offline devices
 - Configurable delay before alerting (default: 30 minutes)
-- Mobile and persistent notifications
-- Optional back online notification
-- Optional logbook entries
+- Exclude specific devices from monitoring (optional)
+- Critical devices with shorter delay, bypass quiet hours (optional)
+- Time-based filtering (optional)
+- Mobile notifications
+- Repeat notifications for still-offline devices (optional)
+- Persistent notifications (optional)
+- Back online notification (optional)
+- Logbook entries (optional)
 
 **Requires:** [Zigbee2MQTT](https://www.zigbee2mqtt.io/) integration.
+
+---
+
+#### [Humidity Alert](blueprints/automation/humidity-alert.yaml)
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fto4kin%2Fhome-assistant%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhumidity-alert.yaml)
+
+Monitors humidity sensors and sends alerts when humidity exceeds threshold.
+
+**Features:**
+
+- Monitor multiple humidity sensors
+- Room detection from sensor area/friendly name
+- Configurable humidity threshold (default: 60%)
+- Cooldown between alerts (default: 1 hour)
+- Outside humidity/temperature/rain checks (optional)
+- Presence awareness (optional)
+- Time-based filtering (optional)
+- Mobile notifications
+- "Humidity normalized" notification (optional)
+- TTS confirmation (optional)
+- Logbook entries (optional)
+
+**Requires:** Assign humidity sensors to areas in Home Assistant for automatic room detection.
