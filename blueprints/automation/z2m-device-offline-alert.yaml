@@ -114,6 +114,7 @@ blueprint:
         notify_devices:
           name: 📲 Notification Devices
           description: Select mobile devices to receive offline alerts.
+          default: []
           selector:
             device:
               filter:
