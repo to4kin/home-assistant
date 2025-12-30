@@ -5,7 +5,7 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/humidity-alert.yaml
   description: |
-    **Version**: 1.0.0
+    **Version**: 1.1.0
 
     Monitors humidity sensors and sends alerts when humidity exceeds threshold.
 
@@ -54,6 +54,18 @@ blueprint:
               max: 90
               step: 5
               unit_of_measurement: "%"
+
+        humidity_threshold_duration:
+          name: ⏱️ Threshold Duration
+          description: >
+            Humidity must stay above threshold for this duration before alerting.
+            Helps avoid false alerts from temporary spikes.
+          default:
+            hours: 0
+            minutes: 5
+            seconds: 0
+          selector:
+            duration:
 
         humidity_hysteresis:
           name: 📉 Hysteresis
@@ -331,6 +343,7 @@ variables:
   tts_target: !input tts_target
   tts_message: !input tts_message
   cooldown: !input cooldown
+  humidity_threshold_duration: !input humidity_threshold_duration
   enable_time_filter: !input enable_time_filter
   time_start: !input time_start
   time_end: !input time_end
@@ -408,6 +421,11 @@ action:
           - condition: template
             value_template: "{{ crossed_threshold }}"
         sequence:
+          # Wait before alerting (avoid false alerts from temporary spikes)
+          - delay: !input humidity_threshold_duration
+          # Re-check if humidity is still high after delay
+          - condition: template
+            value_template: "{{ states(entity_id) | float(0) > humidity_threshold }}"
           # Check presence
           - condition: template
             value_template: "{{ anyone_home }}"
