@@ -348,20 +348,24 @@ variables:
   time_start: !input time_start
   time_end: !input time_end
   enable_logbook: !input enable_logbook
-  # Derived variables
-  entity_id: "{{ trigger.entity_id }}"
-  device_name: "{{ state_attr(entity_id, 'friendly_name') | default(entity_id) }}"
-  current_humidity: "{{ trigger.to_state.state | float(0) }}"
-  previous_humidity: "{{ trigger.from_state.state | float(0) }}"
+  # Derived variables (with safe defaults for manual trigger)
+  entity_id: "{{ trigger.entity_id | default('') }}"
+  device_name: "{{ state_attr(entity_id, 'friendly_name') | default(entity_id) if entity_id else 'Unknown' }}"
+  current_humidity: "{{ trigger.to_state.state | float(0) if trigger.to_state is defined else 0 }}"
+  previous_humidity: "{{ trigger.from_state.state | float(0) if trigger.from_state is defined else 0 }}"
   # Aliases for message templates
   humidity: "{{ current_humidity }}"
   threshold: "{{ humidity_threshold }}"
   room_name: >
-    {% set area = area_name(entity_id) %}
-    {% if area %}
-      {{ area }}
+    {% if entity_id %}
+      {% set area = area_name(entity_id) %}
+      {% if area %}
+        {{ area }}
+      {% else %}
+        {{ state_attr(entity_id, 'friendly_name') | default(entity_id) | regex_replace(' [Hh]umidity.*', '') }}
+      {% endif %}
     {% else %}
-      {{ state_attr(entity_id, 'friendly_name') | default(entity_id) | regex_replace(' [Hh]umidity.*', '') }}
+      Unknown
     {% endif %}
   is_high: "{{ current_humidity > humidity_threshold }}"
   was_high: "{{ previous_humidity > humidity_threshold }}"
