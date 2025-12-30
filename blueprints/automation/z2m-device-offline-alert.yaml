@@ -289,7 +289,7 @@ action:
               - action: persistent_notification.create
                 data:
                   title: "{{ '🚨 ' if is_critical else '' }}{{ notify_title }}"
-                  message: "{{ device_name }} is offline!"
+                  message: "{{ notify_msg_offline }}"
                   notification_id: "{{ persistent_id }}"
           # Mobile notifications
           - repeat:
@@ -298,7 +298,7 @@ action:
                 - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                   data:
                     title: "{{ '🚨 ' if is_critical else '' }}{{ notify_title }}"
-                    message: "{{ device_name }} is offline!"
+                    message: "{{ notify_msg_offline }}"
                   continue_on_error: true
           # Repeat notification loop
           - repeat:
@@ -359,7 +359,7 @@ action:
                 - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                   data:
                     title: "✅ Zigbee Device Online"
-                    message: "{{ device_name }} is back online!"
+                    message: "{{ notify_msg_online }}"
                   continue_on_error: true
 
 mode: parallel

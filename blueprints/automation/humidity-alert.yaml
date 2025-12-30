@@ -218,12 +218,12 @@ blueprint:
           name: 💬 Notification Message
           description: >
             Message template. Available variables:
-            {device_name} - sensor friendly name,
-            {entity_id} - sensor entity ID,
-            {room_name} - area name (or friendly name if no area),
-            {humidity} - current humidity %,
-            {threshold} - configured threshold %.
-          default: "Humidity in {room_name} is {humidity}% (threshold: {threshold}%). Consider opening a window for ventilation."
+            {{ device_name }} - sensor friendly name,
+            {{ entity_id }} - sensor entity ID,
+            {{ room_name }} - area name (or friendly name if no area),
+            {{ humidity }} - current humidity %,
+            {{ threshold }} - configured threshold %.
+          default: "Humidity in {{ room_name }} is {{ humidity }}% (threshold: {{ threshold }}%). Consider opening a window for ventilation."
           selector:
             text:
               multiline: true
@@ -249,12 +249,12 @@ blueprint:
           name: 💬 Normalized Message
           description: >
             Message when humidity returns to normal. Available variables:
-            {device_name} - sensor friendly name,
-            {entity_id} - sensor entity ID,
-            {room_name} - area name (or friendly name if no area),
-            {humidity} - current humidity %,
-            {threshold} - configured threshold %.
-          default: "Humidity in {room_name} is back to normal ({humidity}%)."
+            {{ device_name }} - sensor friendly name,
+            {{ entity_id }} - sensor entity ID,
+            {{ room_name }} - area name (or friendly name if no area),
+            {{ humidity }} - current humidity %,
+            {{ threshold }} - configured threshold %.
+          default: "Humidity in {{ room_name }} is back to normal ({{ humidity }}%)."
           selector:
             text:
               multiline: true
@@ -287,13 +287,13 @@ blueprint:
           name: 💬 TTS Message
           description: >
             TTS message template. Available variables:
-            {device_name} - sensor friendly name,
-            {entity_id} - sensor entity ID,
-            {room_name} - area name (or friendly name if no area),
-            {humidity} - current humidity %,
-            {threshold} - configured threshold %.
+            {{ device_name }} - sensor friendly name,
+            {{ entity_id }} - sensor entity ID,
+            {{ room_name }} - area name (or friendly name if no area),
+            {{ humidity }} - current humidity %,
+            {{ threshold }} - configured threshold %.
             Note: Use Russian for Yandex Station TTS.
-          default: "Attention! Humidity in {room_name} is {humidity} percent. Consider opening a window for ventilation."
+          default: "Attention! Humidity in {{ room_name }} is {{ humidity }} percent. Consider opening a window for ventilation."
           selector:
             text:
               multiline: true
@@ -340,6 +340,9 @@ variables:
   device_name: "{{ state_attr(entity_id, 'friendly_name') | default(entity_id) }}"
   current_humidity: "{{ trigger.to_state.state | float(0) }}"
   previous_humidity: "{{ trigger.from_state.state | float(0) }}"
+  # Aliases for message templates
+  humidity: "{{ current_humidity }}"
+  threshold: "{{ humidity_threshold }}"
   room_name: >
     {% set area = area_name(entity_id) %}
     {% if area %}
@@ -433,7 +436,7 @@ action:
                   data:
                     title: "💧 {{ notify_title }}"
                     message: >
-                      {{ notify_msg | replace('{device_name}', device_name) | replace('{entity_id}', entity_id) | replace('{room_name}', room_name) | replace('{humidity}', current_humidity | string) | replace('{threshold}', humidity_threshold | string) }}
+                      {{ notify_msg }}
                       {% if not weather_ok %}
 
                       {{ notify_msg_weather }}
@@ -452,7 +455,7 @@ action:
                   entity_id: "{{ tts_target }}"
                 data:
                   media_content_id: >
-                    {{ tts_message | replace('{device_name}', device_name) | replace('{entity_id}', entity_id) | replace('{room_name}', room_name) | replace('{humidity}', current_humidity | string) | replace('{threshold}', humidity_threshold | string) }}
+                    {{ tts_message }}
                   media_content_type: text
                   extra:
                     volume_level: 0.5
@@ -490,7 +493,7 @@ action:
                   data:
                     title: "✅ Humidity Normal"
                     message: >
-                      {{ notify_msg_normalized | replace('{device_name}', device_name) | replace('{entity_id}', entity_id) | replace('{room_name}', room_name) | replace('{humidity}', current_humidity | string) | replace('{threshold}', humidity_threshold | string) }}
+                      {{ notify_msg_normalized }}
                     data:
                       tag: "humidity_alert_{{ entity_id | slugify }}"
                       group: "humidity_alerts"
