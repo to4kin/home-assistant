@@ -223,7 +223,7 @@ blueprint:
             {{ room_name }} - area name (or friendly name if no area),
             {{ humidity }} - current humidity %,
             {{ threshold }} - configured threshold %.
-          default: "Humidity in {{ room_name | default('room') }} is {{ humidity | default('?') }}% (threshold: {{ threshold | default('?') }}%). Consider opening a window for ventilation."
+          default: "Humidity in {{ room_name }} is {{ humidity }}% (threshold: {{ threshold }}%). Consider opening a window for ventilation."
           selector:
             text:
               multiline: true
@@ -254,7 +254,7 @@ blueprint:
             {{ room_name }} - area name (or friendly name if no area),
             {{ humidity }} - current humidity %,
             {{ threshold }} - configured threshold %.
-          default: "Humidity in {{ room_name | default('room') }} is back to normal ({{ humidity | default('?') }}%)."
+          default: "Humidity in {{ room_name }} is back to normal ({{ humidity }}%)."
           selector:
             text:
               multiline: true
@@ -293,7 +293,7 @@ blueprint:
             {{ humidity }} - current humidity %,
             {{ threshold }} - configured threshold %.
             Note: Use Russian for Yandex Station TTS.
-          default: "Attention! Humidity in {{ room_name | default('room') }} is {{ humidity | default('?') }} percent. Consider opening a window for ventilation."
+          default: "Attention! Humidity in {{ room_name }} is {{ humidity }} percent. Consider opening a window for ventilation."
           selector:
             text:
               multiline: true
@@ -424,7 +424,7 @@ action:
               - action: logbook.log
                 data:
                   name: "Humidity Alert"
-                  message: "{{ room }}: {{ current_humidity }}% (threshold: {{ humidity_threshold }}%){{ ' - Weather OK' if weather_ok else ' - Weather not ideal' }}"
+                  message: "{{ room_name }}: {{ current_humidity }}% (threshold: {{ humidity_threshold }}%){{ ' - Weather OK' if weather_ok else ' - Weather not ideal' }}"
           # Mobile notifications
           - repeat:
               for_each: !input notify_devices
@@ -433,7 +433,7 @@ action:
                   data:
                     title: "💧 {{ notify_title }}"
                     message: >
-                      {{ notify_msg | replace('{{ room }}', room) | replace('{{ humidity }}', current_humidity | string) | replace('{{ threshold }}', humidity_threshold | string) }}
+                      {{ notify_msg | replace('{{ device_name }}', device_name) | replace('{{ entity_id }}', entity_id) | replace('{{ room_name }}', room_name) | replace('{{ humidity }}', current_humidity | string) | replace('{{ threshold }}', humidity_threshold | string) }}
                       {% if not weather_ok %}
 
                       {{ notify_msg_weather }}
@@ -452,7 +452,7 @@ action:
                   entity_id: "{{ tts_target }}"
                 data:
                   media_content_id: >
-                    {{ tts_message | replace('{{ room }}', room) | replace('{{ humidity }}', current_humidity | string) }}
+                    {{ tts_message | replace('{{ device_name }}', device_name) | replace('{{ entity_id }}', entity_id) | replace('{{ room_name }}', room_name) | replace('{{ humidity }}', current_humidity | string) | replace('{{ threshold }}', humidity_threshold | string) }}
                   media_content_type: text
                   extra:
                     volume_level: 0.5
@@ -481,7 +481,7 @@ action:
               - action: logbook.log
                 data:
                   name: "Humidity Normal"
-                  message: "{{ room }}: {{ current_humidity }}% - Back to normal"
+                  message: "{{ room_name }}: {{ current_humidity }}% - Back to normal"
           # Mobile notifications
           - repeat:
               for_each: !input notify_devices
@@ -490,7 +490,7 @@ action:
                   data:
                     title: "✅ Humidity Normal"
                     message: >
-                      {{ notify_msg_normalized | replace('{{ room }}', room) | replace('{{ humidity }}', current_humidity | string) }}
+                      {{ notify_msg_normalized | replace('{{ device_name }}', device_name) | replace('{{ entity_id }}', entity_id) | replace('{{ room_name }}', room_name) | replace('{{ humidity }}', current_humidity | string) | replace('{{ threshold }}', humidity_threshold | string) }}
                     data:
                       tag: "humidity_alert_{{ entity_id | slugify }}"
                       group: "humidity_alerts"

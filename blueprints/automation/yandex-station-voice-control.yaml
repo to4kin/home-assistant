@@ -310,7 +310,7 @@ action:
               - action: logbook.log
                 data:
                   name: "Yandex Station"
-                  message: "Turned on {{ entity_names }}"
+                  message: "Turned on {{ device_names }}"
           - if:
               - condition: template
                 value_template: "{{ has_tts }}"
@@ -332,7 +332,7 @@ action:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
                         title: "{{ notify_title }}"
-                        message: "{{ notify_msg_on }} {{ entity_names }}"
+                        message: "{{ notify_msg_on }} {{ device_names }}"
                       continue_on_error: true
 
       - conditions:
@@ -350,7 +350,7 @@ action:
               - action: logbook.log
                 data:
                   name: "Yandex Station"
-                  message: "Turned off {{ entity_names }}"
+                  message: "Turned off {{ device_names }}"
           - if:
               - condition: template
                 value_template: "{{ has_tts }}"
@@ -372,7 +372,7 @@ action:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
                         title: "{{ notify_title }}"
-                        message: "{{ notify_msg_off }} {{ entity_names }}"
+                        message: "{{ notify_msg_off }} {{ device_names }}"
                       continue_on_error: true
 
       - conditions:
@@ -390,7 +390,7 @@ action:
               - action: logbook.log
                 data:
                   name: "Yandex Station"
-                  message: "Toggled {{ entity_names }}"
+                  message: "Toggled {{ device_names }}"
           - if:
               - condition: template
                 value_template: "{{ has_tts }}"
@@ -412,7 +412,7 @@ action:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
                         title: "{{ notify_title }}"
-                        message: "{{ notify_msg_toggle }} {{ entity_names }}"
+                        message: "{{ notify_msg_toggle }} {{ device_names }}"
                       continue_on_error: true
 
 mode: single
