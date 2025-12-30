@@ -324,36 +324,16 @@ blueprint:
             boolean:
 
 variables:
+  # Core inputs needed for derived variables
   humidity_sensors: !input humidity_sensors
   humidity_threshold: !input humidity_threshold
   humidity_hysteresis: !input humidity_hysteresis
-  weather_entity: !input weather_entity
-  outside_humidity_sensor: !input outside_humidity_sensor
-  outside_temp_sensor: !input outside_temp_sensor
-  min_outside_temp: !input min_outside_temp
-  check_rain: !input check_rain
-  presence_entities: !input presence_entities
-  notify_devices: !input notify_devices
-  notify_title: !input notify_title
-  notify_msg: !input notify_message
-  notify_msg_weather: !input notify_message_weather
-  notify_normalized: !input notify_normalized
-  notify_msg_normalized: !input notify_message_normalized
-  enable_tts: !input enable_tts
-  tts_target: !input tts_target
-  tts_message: !input tts_message
-  cooldown: !input cooldown
-  humidity_threshold_duration: !input humidity_threshold_duration
-  enable_time_filter: !input enable_time_filter
-  time_start: !input time_start
-  time_end: !input time_end
-  enable_logbook: !input enable_logbook
-  # Derived variables (with safe defaults for manual trigger)
+  # Derived variables (with safe defaults for manual trigger) - MUST be before message inputs
   entity_id: "{{ trigger.entity_id | default('') }}"
   device_name: "{{ state_attr(entity_id, 'friendly_name') | default(entity_id) if entity_id else 'Unknown' }}"
   current_humidity: "{{ trigger.to_state.state | float(0) if trigger.to_state is defined else 0 }}"
   previous_humidity: "{{ trigger.from_state.state | float(0) if trigger.from_state is defined else 0 }}"
-  # Aliases for message templates
+  # Aliases for message templates - MUST be before message inputs
   humidity: "{{ current_humidity }}"
   threshold: "{{ humidity_threshold }}"
   room_name: >
@@ -367,6 +347,29 @@ variables:
     {% else %}
       Unknown
     {% endif %}
+  # Other inputs
+  weather_entity: !input weather_entity
+  outside_humidity_sensor: !input outside_humidity_sensor
+  outside_temp_sensor: !input outside_temp_sensor
+  min_outside_temp: !input min_outside_temp
+  check_rain: !input check_rain
+  presence_entities: !input presence_entities
+  notify_devices: !input notify_devices
+  notify_title: !input notify_title
+  # Message inputs - read AFTER template variables are defined
+  notify_msg: !input notify_message
+  notify_msg_weather: !input notify_message_weather
+  notify_normalized: !input notify_normalized
+  notify_msg_normalized: !input notify_message_normalized
+  enable_tts: !input enable_tts
+  tts_target: !input tts_target
+  tts_message: !input tts_message
+  cooldown: !input cooldown
+  humidity_threshold_duration: !input humidity_threshold_duration
+  enable_time_filter: !input enable_time_filter
+  time_start: !input time_start
+  time_end: !input time_end
+  enable_logbook: !input enable_logbook
   is_high: "{{ current_humidity > humidity_threshold }}"
   was_high: "{{ previous_humidity > humidity_threshold }}"
   is_normalized: "{{ current_humidity <= (humidity_threshold - humidity_hysteresis) and was_high }}"
