@@ -231,30 +231,34 @@ blueprint:
             boolean:
 
 variables:
+  # Core inputs
   target_entities: !input target_entities
   source_stations: !input source_stations
   notify_devices: !input notify_devices
   tts_entity: !input tts_entity
-  tts_confirm_on: !input tts_confirm_on
-  tts_confirm_off: !input tts_confirm_off
-  tts_confirm_toggle: !input tts_confirm_toggle
   turn_on_cmd: !input turn_on_command
   turn_off_cmd: !input turn_off_command
   toggle_cmd: !input toggle_command
   enable_logbook: !input enable_logbook
-  notify_msg_on: !input notify_message_on
-  notify_msg_off: !input notify_message_off
-  notify_msg_toggle: !input notify_message_toggle
   notify_title: !input notify_title
+  # Template variables - MUST be before message inputs
+  device_names: >
+    {{ target_entities | map('state_attr', 'friendly_name') | select('string') | join(', ') }}
+  entity_ids: >
+    {{ target_entities | join(', ') }}
+  # Derived variables
   has_notify: "{{ notify_devices | length > 0 }}"
   has_tts: "{{ tts_entity != [] and tts_entity != '' }}"
   has_source_filter: "{{ source_stations | length > 0 }}"
   event_entity: "{{ trigger.event.data.entity_id | default('') }}"
   is_valid_source: "{{ not has_source_filter or event_entity in source_stations }}"
-  device_names: >
-    {{ target_entities | map('state_attr', 'friendly_name') | select('string') | join(', ') }}
-  entity_ids: >
-    {{ target_entities | join(', ') }}
+  # Message inputs - read AFTER template variables are defined
+  tts_confirm_on: !input tts_confirm_on
+  tts_confirm_off: !input tts_confirm_off
+  tts_confirm_toggle: !input tts_confirm_toggle
+  notify_msg_on: !input notify_message_on
+  notify_msg_off: !input notify_message_off
+  notify_msg_toggle: !input notify_message_toggle
 
 trigger:
   - platform: event
