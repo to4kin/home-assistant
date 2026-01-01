@@ -231,6 +231,9 @@ action:
       - conditions:
           - condition: trigger
             id: family_arrived
+          - condition: state
+            entity_id: !input preheat_toggle
+            state: "on"
         sequence:
           - action: input_boolean.turn_off
             target:
@@ -259,6 +262,9 @@ action:
       - conditions:
           - condition: trigger
             id: everyone_left
+          - condition: state
+            entity_id: !input preheat_toggle
+            state: "off"
           - condition: template
             value_template: "{{ input_auto_enable_on_leave }}"
           - condition: template
