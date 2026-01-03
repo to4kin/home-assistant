@@ -100,10 +100,10 @@ blueprint:
               step: 1
               unit_of_measurement: "°C"
 
-        threshold_duration:
-          name: ⏱️ Threshold Duration
+        alert_delay:
+          name: ⏱️ Alert Delay
           description: >
-            Humidity must stay above threshold for this duration before alerting.
+            Wait this duration after mould risk is detected before sending alert.
             Helps avoid false alerts from temporary spikes.
           default:
             hours: 0
@@ -304,9 +304,9 @@ blueprint:
             text:
               multiline: true
 
-    # TTS Confirmation
+    # TTS Announcements
     tts_section:
-      name: TTS Confirmation
+      name: TTS Announcements
       icon: mdi:account-voice
       collapsed: true
       input:
@@ -494,7 +494,7 @@ action:
           - condition: template
             value_template: "{{ mould_worsened and someone_home and in_time_window }}"
         sequence:
-          - delay: !input threshold_duration
+          - delay: !input alert_delay
           # Re-check after delay - still meets notification level and conditions
           - condition: template
             value_template: >-

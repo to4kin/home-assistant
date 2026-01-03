@@ -259,9 +259,9 @@ blueprint:
             text:
               multiline: true
 
-    # TTS Confirmation
+    # TTS Announcements
     tts_section:
-      name: TTS Confirmation
+      name: TTS Announcements
       icon: mdi:account-voice
       collapsed: true
       input:
