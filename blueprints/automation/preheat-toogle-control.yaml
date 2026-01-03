@@ -105,6 +105,8 @@ blueprint:
           description: >
             Wait this duration after someone arrives before disabling preheat.
             Helps prevent false triggers from GPS drift.
+            Note: If using AHC with person-based presence detection, use a different delay
+            than AHC to avoid race conditions when both automations trigger simultaneously.
           default:
             hours: 0
             minutes: 0
@@ -126,6 +128,8 @@ blueprint:
           description: >
             Wait this duration after everyone leaves before enabling preheat.
             Helps prevent false triggers from GPS drift.
+            Note: If using AHC with person-based presence detection, use a different delay
+            than AHC to avoid race conditions when both automations trigger simultaneously.
           default:
             hours: 0
             minutes: 0

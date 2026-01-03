@@ -1,0 +1,16 @@
+# Personal configuration files (contain sensitive data)
+dashboard.yaml
+
+# Home Assistant secrets
+secrets.yaml
+
+# Local development
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -19,7 +19,7 @@ blueprint:
     - Time-based filtering (optional)
     - Mobile notifications
     - "Humidity normalized" notification (optional)
-    - TTS confirmation (optional)
+    - TTS announcements (optional)
     - Logbook entries (optional)
 
     **Requires**: Assign humidity sensors to areas in Home Assistant for automatic room detection.
@@ -280,7 +280,7 @@ blueprint:
         enable_tts:
           name: 🔊 Enable TTS (Optional)
           description: >
-            Announce alerts via Yandex Station.
+            Announce alerts via TTS-capable media player (Alexa, Google Home, Yandex Station, etc.).
           default: false
           selector:
             boolean:
@@ -288,7 +288,7 @@ blueprint:
         tts_target:
           name: 🎙️ TTS Target
           description: >
-            Required when TTS is enabled. Yandex Station media player for TTS announcements.
+            Required when TTS is enabled. Media player for TTS announcements.
           default: []
           selector:
             entity:
@@ -304,7 +304,7 @@ blueprint:
             {{ room_name }} - area name (or friendly name if no area),
             {{ humidity }} - current humidity %,
             {{ threshold }} - configured threshold %.
-            Note: Use Russian for Yandex Station TTS.
+            Note: For Yandex Station, use Russian language.
           default: "Attention! Humidity in {{ room_name }} is {{ humidity }} percent. Consider opening a window for ventilation."
           selector:
             text:
