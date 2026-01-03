@@ -84,7 +84,6 @@ Monitors humidity sensors and sends alerts when humidity exceeds threshold.
 - Monitor multiple humidity sensors
 - Room detection from sensor area/friendly name
 - Configurable humidity threshold (default: 60%)
-- Cooldown between alerts (default: 1 hour)
 - Outside humidity/temperature/rain checks (optional)
 - Presence awareness (optional)
 - Time-based filtering (optional)

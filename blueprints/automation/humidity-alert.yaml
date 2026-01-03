@@ -13,7 +13,6 @@ blueprint:
     - Monitor multiple humidity sensors
     - Room detection from sensor area/friendly name
     - Configurable humidity threshold (default: 60%)
-    - Cooldown between alerts (default: 1 hour)
     - Outside humidity/temperature/rain checks (optional)
     - Presence awareness (optional)
     - Time-based filtering (optional)
@@ -79,17 +78,6 @@ blueprint:
               max: 20
               step: 1
               unit_of_measurement: "%"
-
-        cooldown:
-          name: ⏱️ Cooldown Period
-          description: >
-            Minimum time between alerts for the same room.
-          default:
-            hours: 1
-            minutes: 0
-            seconds: 0
-          selector:
-            duration:
 
     # Weather Settings
     weather_section:
@@ -364,7 +352,6 @@ variables:
   enable_tts: !input enable_tts
   tts_target: !input tts_target
   tts_message: !input tts_message
-  cooldown: !input cooldown
   humidity_threshold_duration: !input humidity_threshold_duration
   enable_time_filter: !input enable_time_filter
   time_start: !input time_start
@@ -408,9 +395,6 @@ variables:
     {% else %}
       {{ presence_entities | expand | selectattr('state', 'eq', 'home') | list | count > 0 }}
     {% endif %}
-  # Cooldown tracking
-  cooldown_seconds: "{{ cooldown.hours * 3600 + cooldown.minutes * 60 + cooldown.seconds }}"
-
 trigger:
   - platform: state
     entity_id: !input humidity_sensors

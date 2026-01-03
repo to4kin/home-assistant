@@ -112,17 +112,6 @@ blueprint:
           selector:
             duration:
 
-        cooldown:
-          name: ⏱️ Cooldown Period
-          description: >
-            Minimum time between alerts for this room.
-          default:
-            hours: 1
-            minutes: 0
-            seconds: 0
-          selector:
-            duration:
-
     # Weather Settings
     weather_section:
       name: Weather Settings
@@ -385,7 +374,6 @@ variables:
   enable_tts: !input enable_tts
   tts_target: !input tts_target
   enable_logbook: !input enable_logbook
-  cooldown: !input cooldown
   presence_entities: !input presence_entities
   enable_time_filter: !input enable_time_filter
   time_start: !input time_start
@@ -426,9 +414,6 @@ variables:
   previous_humidity: "{{ trigger.from_state.state | float(0) if trigger.from_state is defined else 0 }}"
   previous_mould_risk: >-
     {% if previous_humidity >= mould_danger_threshold %}Danger{% elif previous_humidity >= mould_warning_threshold %}Warning{% else %}OK{% endif %}
-
-  # Cooldown tracking
-  cooldown_seconds: "{{ cooldown.hours * 3600 + cooldown.minutes * 60 + cooldown.seconds }}"
 
   # Alert conditions
   should_notify: >-
