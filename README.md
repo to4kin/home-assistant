@@ -90,7 +90,31 @@ Monitors humidity sensors and sends alerts when humidity exceeds threshold.
 - Time-based filtering (optional)
 - Mobile notifications
 - "Humidity normalized" notification (optional)
-- TTS confirmation (optional)
+- TTS announcements (optional)
 - Logbook entries (optional)
 
 **Requires:** Assign humidity sensors to areas in Home Assistant for automatic room detection.
+
+---
+
+#### [Humidity Room Monitor](blueprints/automation/humidity-room-monitor.yaml)
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fto4kin%2Fhome-assistant%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhumidity-room-monitor.yaml)
+
+Per-room humidity monitoring with mould and condensation risk calculation.
+
+**Features:**
+
+- Monitor one room's humidity and temperature
+- Mould risk detection (warning/danger thresholds)
+- Condensation risk calculation (dew point vs window temperature)
+- Configurable notification level (Warning or Danger)
+- Update helpers for dashboard display (optional)
+- Weather-aware recommendations
+- Presence awareness (optional)
+- Time-based filtering (optional)
+- Mobile notifications
+- TTS announcements (optional)
+- Logbook entries (optional)
+
+**Requires:** Create one automation per room. Optionally create `input_text` helpers for mould/condensation risk status.

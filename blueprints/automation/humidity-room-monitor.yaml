@@ -1,0 +1,596 @@
+blueprint:
+  name: Humidity Room Monitor
+  author: to4kin
+  homeassistant:
+    min_version: "2025.1.0"
+  source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/humidity-room-monitor.yaml
+  description: |
+    **Version**: 1.0.0
+
+    Per-room humidity monitoring with condensation risk calculation and helper updates.
+
+    **Features**:
+    - Monitor one room's humidity and temperature
+    - Mould risk detection (warning/danger thresholds)
+    - Condensation risk calculation (dew point vs window temperature)
+    - Update helpers for historical data
+    - Weather-aware recommendations
+    - Mobile notifications with room-specific alerts
+    - TTS announcements (optional)
+
+    **Setup**:
+    1. Create helpers for calculated values (optional):
+       - input_text for mould risk status
+       - input_text for condensation risk status
+    2. Assign sensors to areas in Home Assistant
+    3. Create one automation per room using this blueprint
+
+  domain: automation
+  input:
+    # Main Settings
+    main_section:
+      name: Main Settings
+      icon: mdi:water-percent
+      collapsed: false
+      input:
+        room:
+          name: 🏠 Room
+          description: >
+            Select the room/area for this monitor.
+          selector:
+            area:
+
+        humidity_sensor:
+          name: 💧 Humidity Sensor
+          description: >
+            Select humidity sensor for this room.
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: humidity
+
+        temperature_sensor:
+          name: 🌡️ Temperature Sensor (Optional)
+          description: >
+            Select temperature sensor for this room.
+            Required for condensation risk calculation.
+            Leave empty to skip condensation monitoring.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: temperature
+
+        mould_warning_threshold:
+          name: 📊 Mould Warning Threshold
+          description: >
+            Alert when humidity exceeds this value (%).
+          default: 60
+          selector:
+            number:
+              min: 40
+              max: 80
+              step: 5
+              unit_of_measurement: "%"
+
+        mould_danger_threshold:
+          name: 🚨 Mould Danger Threshold
+          description: >
+            Danger alert when humidity exceeds this value (%).
+          default: 70
+          selector:
+            number:
+              min: 50
+              max: 90
+              step: 5
+              unit_of_measurement: "%"
+
+        condensation_warning_margin:
+          name: 💨 Condensation Warning Margin
+          description: >
+            Alert when dew point is within this margin of window temperature (°C).
+            Lower values = more sensitive.
+          default: 3
+          selector:
+            number:
+              min: 0
+              max: 10
+              step: 1
+              unit_of_measurement: "°C"
+
+        threshold_duration:
+          name: ⏱️ Threshold Duration
+          description: >
+            Humidity must stay above threshold for this duration before alerting.
+            Helps avoid false alerts from temporary spikes.
+          default:
+            hours: 0
+            minutes: 5
+            seconds: 0
+          selector:
+            duration:
+
+        cooldown:
+          name: ⏱️ Cooldown Period
+          description: >
+            Minimum time between alerts for this room.
+          default:
+            hours: 1
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
+
+    # Weather Settings
+    weather_section:
+      name: Weather Settings
+      icon: mdi:weather-partly-cloudy
+      collapsed: true
+      input:
+        weather_entity:
+          name: 🌤️ Weather Entity (Optional)
+          description: >
+            Weather entity for outdoor temperature (used for condensation calculation).
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: weather
+
+        window_temp_offset:
+          name: 🪟 Window Temperature Offset
+          description: >
+            Estimated difference between outdoor temp and window surface temp (°C).
+            Typical value is 3°C for double-glazed windows.
+          default: 3
+          selector:
+            number:
+              min: 0
+              max: 10
+              step: 1
+              unit_of_measurement: "°C"
+
+        min_outside_temp:
+          name: ❄️ Minimum Outside Temperature
+          description: >
+            Don't suggest opening windows if outside temperature is below this value.
+          default: -10
+          selector:
+            number:
+              min: -20
+              max: 20
+              step: 1
+              unit_of_measurement: "°C"
+
+    # Presence Settings
+    presence_section:
+      name: Presence Settings
+      icon: mdi:account-group
+      collapsed: true
+      input:
+        presence_entities:
+          name: 👥 Presence Entities (Optional)
+          description: >
+            Person entities to check presence.
+            Alerts only sent when at least one person is home.
+            Leave empty to always send alerts.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: person
+              multiple: true
+
+    # Time Filter
+    time_section:
+      name: Time Filter
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        enable_time_filter:
+          name: 🕔 Enable Time Filter (Optional)
+          description: >
+            Only send alerts during specified hours.
+          default: false
+          selector:
+            boolean:
+
+        time_start:
+          name: ☀️ Alert Start Time
+          description: >
+            Start sending alerts at this time.
+          default: "08:00:00"
+          selector:
+            time:
+
+        time_end:
+          name: 🌙 Alert End Time
+          description: >
+            Stop sending alerts at this time.
+          default: "22:00:00"
+          selector:
+            time:
+
+    # Helpers for Calculated Values
+    helper_section:
+      name: Helpers (Optional)
+      icon: mdi:database-outline
+      collapsed: true
+      input:
+        mould_risk_helper:
+          name: 🍄 Mould Risk Helper (Optional)
+          description: >
+            input_text to store mould risk status (OK/Warning/Danger).
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: input_text
+
+        condensation_risk_helper:
+          name: 💧 Condensation Risk Helper (Optional)
+          description: >
+            input_text to store condensation risk status (OK/Watch/Risk/Danger).
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: input_text
+
+    # Notifications
+    notification_section:
+      name: Notifications
+      icon: mdi:cellphone-message
+      collapsed: true
+      input:
+        notify_devices:
+          name: 📲 Notification Devices
+          description: >
+            Mobile devices to send notifications to.
+          default: []
+          selector:
+            device:
+              filter:
+                - integration: mobile_app
+              multiple: true
+
+        notify_level:
+          name: 🚨 Notify Starting From Level
+          description: >
+            Send notifications starting from this mould risk level.
+          default: "Warning"
+          selector:
+            select:
+              options:
+                - "Warning"
+                - "Danger"
+
+        notify_title:
+          name: ✏️ Notification Title
+          description: >
+            Title for the notification.
+          default: "Mould Risk Alert"
+          selector:
+            text:
+
+        notify_message:
+          name: 💬 Notification Message
+          description: >
+            Message template. Available variables:
+            {{ room_name }} - area name,
+            {{ humidity }} - current humidity %,
+            {{ mould_risk }} - mould risk status (OK/Warning/Danger).
+          default: "Mould risk in {{ room_name }}: {{ mould_risk }}. Humidity is {{ humidity }}%. Consider ventilating."
+          selector:
+            text:
+              multiline: true
+
+        notify_message_weather:
+          name: 🌤️ Weather Advisory Message
+          description: >
+            Additional message when weather conditions are not ideal for opening windows.
+          default: "⚠️ Note: Current weather conditions may not be ideal for ventilation."
+          selector:
+            text:
+              multiline: true
+
+        notify_normalized:
+          name: ✅ Notify When Normalized (Optional)
+          description: >
+            Send notification when humidity returns to normal level.
+          default: false
+          selector:
+            boolean:
+
+        notify_message_normalized:
+          name: 💬 Normalized Message
+          description: >
+            Message when mould risk returns to normal. Available variables:
+            {{ room_name }} - area name,
+            {{ humidity }} - current humidity %.
+          default: "Mould risk in {{ room_name }} is back to OK. Humidity is {{ humidity }}%."
+          selector:
+            text:
+              multiline: true
+
+    # TTS Confirmation
+    tts_section:
+      name: TTS Confirmation
+      icon: mdi:account-voice
+      collapsed: true
+      input:
+        enable_tts:
+          name: 🔊 Enable TTS (Optional)
+          description: >
+            Announce alerts via TTS-capable media player (Alexa, Google Home, Yandex Station, etc.).
+          default: false
+          selector:
+            boolean:
+
+        tts_target:
+          name: 🎙️ TTS Target
+          description: >
+            Required when TTS is enabled. Media player for TTS announcements.
+          default: []
+          selector:
+            entity:
+              filter:
+                - domain: media_player
+
+        tts_message:
+          name: 💬 TTS Message
+          description: >
+            TTS message template. Available variables:
+            {{ room_name }} - area name,
+            {{ humidity }} - current humidity %,
+            {{ mould_risk }} - mould risk status.
+            Note: For Yandex Station, use Russian language.
+          default: "Attention! Mould risk in {{ room_name }}. Humidity is {{ humidity }} percent. Please ventilate."
+          selector:
+            text:
+              multiline: true
+
+    # Logging
+    logging_section:
+      name: Logging
+      icon: mdi:notebook-outline
+      collapsed: true
+      input:
+        enable_logbook:
+          name: 📓 Enable Logbook
+          description: Log humidity alerts to Home Assistant logbook.
+          default: true
+          selector:
+            boolean:
+
+variables:
+  # Inputs
+  room: !input room
+  humidity_sensor: !input humidity_sensor
+  temperature_sensor: !input temperature_sensor
+  weather_entity: !input weather_entity
+  window_temp_offset: !input window_temp_offset
+  min_outside_temp: !input min_outside_temp
+  mould_warning_threshold: !input mould_warning_threshold
+  mould_danger_threshold: !input mould_danger_threshold
+  condensation_warning_margin: !input condensation_warning_margin
+  mould_risk_helper: !input mould_risk_helper
+  condensation_risk_helper: !input condensation_risk_helper
+  notify_devices: !input notify_devices
+  notify_level: !input notify_level
+  notify_title: !input notify_title
+  notify_normalized: !input notify_normalized
+  enable_tts: !input enable_tts
+  tts_target: !input tts_target
+  enable_logbook: !input enable_logbook
+  cooldown: !input cooldown
+  presence_entities: !input presence_entities
+  enable_time_filter: !input enable_time_filter
+  time_start: !input time_start
+  time_end: !input time_end
+
+  # Derived values - MUST be before message inputs
+  room_name: "{{ area_name(room) }}"
+  current_humidity: "{{ states(humidity_sensor) | float(0) }}"
+  # Alias for message templates
+  humidity: "{{ current_humidity }}"
+  current_temp: >-
+    {% if temperature_sensor %}{{ states(temperature_sensor) | float(20) }}{% else %}20{% endif %}
+
+  # Dew point calculation: Td ≈ T - ((100 - RH) / 5)
+  dew_point: "{{ current_temp - ((100 - current_humidity) / 5) }}"
+
+  # Window temperature (outdoor + offset)
+  outdoor_temp: >-
+    {% if weather_entity %}{{ state_attr(weather_entity, 'temperature') | float(10) }}{% else %}10{% endif %}
+  window_temp: "{{ outdoor_temp + window_temp_offset }}"
+  # Condensation margin (positive = safe, negative = condensation likely)
+  condensation_margin: "{{ window_temp - dew_point }}"
+
+  # Risk levels
+  mould_risk: >-
+    {% if current_humidity >= mould_danger_threshold %}Danger{% elif current_humidity >= mould_warning_threshold %}Warning{% else %}OK{% endif %}
+
+  condensation_risk: >-
+    {% if temperature_sensor %}{% if condensation_margin < 0 %}Danger{% elif condensation_margin < condensation_warning_margin %}Risk{% elif condensation_margin < 6 %}Watch{% else %}OK{% endif %}{% else %}Unknown{% endif %}
+
+  # Message inputs - read AFTER template variables are defined
+  notify_msg: !input notify_message
+  notify_msg_weather: !input notify_message_weather
+  notify_msg_normalized: !input notify_message_normalized
+  tts_message: !input tts_message
+
+  # Previous states for change detection
+  previous_humidity: "{{ trigger.from_state.state | float(0) if trigger.from_state is defined else 0 }}"
+  previous_mould_risk: >-
+    {% if previous_humidity >= mould_danger_threshold %}Danger{% elif previous_humidity >= mould_warning_threshold %}Warning{% else %}OK{% endif %}
+
+  # Cooldown tracking
+  cooldown_seconds: "{{ cooldown.hours * 3600 + cooldown.minutes * 60 + cooldown.seconds }}"
+
+  # Alert conditions
+  should_notify: >-
+    {% if notify_level == 'Danger' %}{{ mould_risk == 'Danger' }}{% else %}{{ mould_risk in ['Warning', 'Danger'] }}{% endif %}
+  was_notifiable: >-
+    {% if notify_level == 'Danger' %}{{ previous_mould_risk == 'Danger' }}{% else %}{{ previous_mould_risk in ['Warning', 'Danger'] }}{% endif %}
+  mould_worsened: "{{ should_notify and not was_notifiable }}"
+  mould_normalized: "{{ mould_risk == 'OK' and was_notifiable }}"
+
+  # Weather check (for notification message)
+  outside_humidity: >-
+    {% if weather_entity %}{{ state_attr(weather_entity, 'humidity') | float(50) }}{% else %}50{% endif %}
+  weather_ok: >-
+    {% if weather_entity %}{{ outdoor_temp >= min_outside_temp and current_humidity > outside_humidity }}{% else %}true{% endif %}
+
+  # Sensor area validation
+  humidity_sensor_area: "{{ area_id(humidity_sensor) }}"
+  temp_sensor_area: "{{ area_id(temperature_sensor) if temperature_sensor else none }}"
+  sensors_match_room: >-
+    {{ humidity_sensor_area == room and (not temperature_sensor or temp_sensor_area == room) }}
+
+  # Presence check
+  someone_home: >-
+    {% if presence_entities | length > 0 %}{{ presence_entities | select('is_state', 'home') | list | length > 0 }}{% else %}true{% endif %}
+
+  # Time check
+  in_time_window: >-
+    {% if enable_time_filter %}{{ time_start <= now().strftime('%H:%M:%S') <= time_end }}{% else %}true{% endif %}
+
+trigger:
+  - platform: state
+    entity_id: !input humidity_sensor
+    id: humidity_change
+
+condition:
+  - condition: template
+    value_template: "{{ current_humidity > 0 }}"
+
+action:
+  # Warn if sensors don't match selected room
+  - if:
+      - condition: template
+        value_template: "{{ not sensors_match_room }}"
+    then:
+      - action: system_log.write
+        data:
+          level: warning
+          message: >
+            Humidity Room Monitor: Sensor area mismatch for {{ room_name }}.
+            Humidity sensor area: {{ area_name(humidity_sensor_area) | default('None') }}.
+            {% if temperature_sensor %}Temperature sensor area: {{ area_name(temp_sensor_area) | default('None') }}.{% endif %}
+
+  # Update helpers
+  - if:
+      - condition: template
+        value_template: "{{ mould_risk_helper | length > 0 }}"
+    then:
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ mould_risk_helper }}"
+        data:
+          value: "{{ mould_risk }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ condensation_risk_helper | length > 0 and temperature_sensor }}"
+    then:
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ condensation_risk_helper }}"
+        data:
+          value: "{{ condensation_risk }}"
+
+  # Alert on mould risk change
+  - choose:
+      # Mould risk worsened
+      - conditions:
+          - condition: template
+            value_template: "{{ mould_worsened and someone_home and in_time_window }}"
+        sequence:
+          - delay: !input threshold_duration
+          # Re-check after delay - still meets notification level and conditions
+          - condition: template
+            value_template: >-
+              {% set h = states(humidity_sensor) | float(0) %}
+              {% if notify_level == 'Danger' %}
+                {{ h >= mould_danger_threshold and someone_home and in_time_window }}
+              {% else %}
+                {{ h >= mould_warning_threshold and someone_home and in_time_window }}
+              {% endif %}
+          # Logbook
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Humidity Alert"
+                  message: >
+                    {{ room_name }}: {{ mould_risk }} - Humidity {{ current_humidity | round(0) }}%
+                    {% if temperature_sensor and condensation_risk != 'OK' %}
+                    , Condensation {{ condensation_risk }} (margin {{ condensation_margin | round(1) }}°C)
+                    {% endif %}
+          # Mobile notifications
+          - repeat:
+              for_each: "{{ notify_devices }}"
+              sequence:
+                - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                  data:
+                    title: "💧 {{ notify_title }}"
+                    message: >
+                      {{ notify_msg }}
+                      {% if not weather_ok %}
+
+                      {{ notify_msg_weather }}
+                      {% endif %}
+                    data:
+                      tag: "humidity_{{ room | slugify }}"
+                      group: "humidity_alerts"
+                  continue_on_error: true
+          # TTS
+          - if:
+              - condition: template
+                value_template: "{{ enable_tts and tts_target }}"
+            then:
+              - action: media_player.play_media
+                target:
+                  entity_id: "{{ tts_target }}"
+                data:
+                  media_content_id: >
+                    {{ tts_message }}
+                  media_content_type: text
+                  extra:
+                    volume_level: 0.5
+
+      # Mould risk normalized
+      - conditions:
+          - condition: template
+            value_template: "{{ mould_normalized and notify_normalized and someone_home and in_time_window }}"
+        sequence:
+          # Logbook
+          - if:
+              - condition: template
+                value_template: "{{ enable_logbook }}"
+            then:
+              - action: logbook.log
+                data:
+                  name: "Humidity Normal"
+                  message: "{{ room_name }}: Humidity back to normal ({{ current_humidity | round(0) }}%)"
+          # Mobile notifications
+          - repeat:
+              for_each: "{{ notify_devices }}"
+              sequence:
+                - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                  data:
+                    title: "✅ Mould Risk OK"
+                    message: >
+                      {{ notify_msg_normalized }}
+                    data:
+                      tag: "humidity_{{ room | slugify }}"
+                      group: "humidity_alerts"
+                  continue_on_error: true
+
+mode: single
+max_exceeded: silent
