@@ -5,7 +5,7 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/yandex-station-voice-control.yaml
   description: |
-    **Version**: 1.2.0
+    **Version**: 1.2.1
 
     Control any entity using voice commands from Yandex Station.
 
@@ -336,7 +336,7 @@ action:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
                         title: "{{ notify_title }}"
-                        message: "{{ notify_msg_on }} {{ device_names }}"
+                        message: "{{ notify_msg_on }}"
                       continue_on_error: true
 
       - conditions:
@@ -376,7 +376,7 @@ action:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
                         title: "{{ notify_title }}"
-                        message: "{{ notify_msg_off }} {{ device_names }}"
+                        message: "{{ notify_msg_off }}"
                       continue_on_error: true
 
       - conditions:
@@ -416,7 +416,7 @@ action:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
                         title: "{{ notify_title }}"
-                        message: "{{ notify_msg_toggle }} {{ device_names }}"
+                        message: "{{ notify_msg_toggle }}"
                       continue_on_error: true
 
 mode: single
