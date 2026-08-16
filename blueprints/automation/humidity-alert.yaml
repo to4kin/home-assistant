@@ -385,8 +385,8 @@ variables:
       false
     {% endif %}
   weather_ok: >
-    {{ outside_humidity < current_humidity 
-       and outside_temp >= min_outside_temp 
+    {{ outside_humidity < current_humidity
+       and outside_temp >= min_outside_temp
        and not is_raining }}
   # Presence check
   anyone_home: >

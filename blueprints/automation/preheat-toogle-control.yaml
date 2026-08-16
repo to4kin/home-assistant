@@ -187,34 +187,34 @@ variables:
   enable_logbook: !input enable_logbook
   has_notify: "{{ notify_devices | length > 0 }}"
   is_anybody_home: >
-    {{ input_persons | expand 
-                     | selectattr('state', 'eq', 'home') 
-                     | list 
+    {{ input_persons | expand
+                     | selectattr('state', 'eq', 'home')
+                     | list
                      | count > 0 }}
   persons_home_names: >
-    {{ input_persons | expand 
-                     | selectattr('state', 'eq', 'home') 
-                     | map(attribute='name') 
+    {{ input_persons | expand
+                     | selectattr('state', 'eq', 'home')
+                     | map(attribute='name')
                      | join(', ') }}
   is_too_warm: >
-    {{ input_outside_temp != [] and 
+    {{ input_outside_temp != [] and
        states(input_outside_temp) | float(0) >= input_outside_temp_threshold }}
 
 trigger:
   - platform: template
     value_template: >
-      {{ input_persons | expand 
-                       | selectattr('state', 'eq', 'home') 
-                       | list 
+      {{ input_persons | expand
+                       | selectattr('state', 'eq', 'home')
+                       | list
                        | count > 0 }}
     for: !input input_arrival_delay
     id: family_arrived
 
   - platform: template
     value_template: >
-      {{ input_persons | expand 
-                       | selectattr('state', 'eq', 'home') 
-                       | list 
+      {{ input_persons | expand
+                       | selectattr('state', 'eq', 'home')
+                       | list
                        | count == 0 }}
     for: !input input_leaving_delay
     id: everyone_left
