@@ -13,6 +13,10 @@ git ls-files -z -- '*.yaml' '*.yml' | xargs -0 ruby -ryaml -e '
   end
 '
 
+while IFS= read -r -d '' test_file; do
+  ruby "$test_file"
+done < <(find tests -type f -name '*_test.rb' -print0)
+
 while IFS= read -r -d '' converter_file; do
   node --check "$converter_file"
   echo "JavaScript OK: $converter_file"

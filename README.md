@@ -56,22 +56,22 @@ Control any entity using voice commands from Yandex Station.
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fto4kin%2Fhome-assistant%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fz2m-device-offline-alert.yaml)
 
-Monitors Zigbee2MQTT devices and sends notifications when they go offline.
+Monitors Zigbee2MQTT devices and sends one alert per offline device.
 
 **Features:**
 
-- Monitors all Z2M devices automatically
-- Configurable delay before alerting (default: 30 minutes)
-- Exclude specific devices from monitoring (optional)
-- Critical devices with shorter delay, bypass quiet hours (optional)
-- Time-based filtering (optional)
-- Mobile notifications
-- Repeat notifications for still-offline devices (optional)
-- Persistent notifications (optional)
-- Back online notification (optional)
-- Logbook entries (optional)
+- Automatically groups Home Assistant entities by Zigbee2MQTT device
+- Sends one alert per device, regardless of how many entities it exposes
+- Sends one global bridge alert when Zigbee2MQTT itself is unavailable
+- Device-level exclude and critical-device selectors
+- Configurable normal and critical offline delays
+- Quiet hours with critical-device and bridge bypass
+- Optional repeat, persistent, and back-online notifications
+- A zero repeat interval disables repeats
 
-**Requires:** [Zigbee2MQTT](https://www.zigbee2mqtt.io/) integration.
+**Requires:** [Zigbee2MQTT](https://www.zigbee2mqtt.io/) with Home Assistant MQTT discovery enabled.
+
+**Startup limitation:** A device that was already offline when the automation loaded will alert only after it produces a new availability transition. This avoids false alerts while MQTT discovery is still restoring entities after Home Assistant startup.
 
 ---
 

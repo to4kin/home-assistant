@@ -5,46 +5,42 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/z2m-device-offline-alert.yaml
   description: |
-    **Version**: 1.1.0
+    **Version**: 2.0.0
 
-    Monitors Zigbee2MQTT devices and sends notifications when they go offline.
+    Monitors Zigbee2MQTT devices and sends one alert per offline device.
 
     **Features**:
-    - Monitors all Z2M devices automatically
-    - Configurable delay before alerting (default: 30 minutes)
-    - Exclude specific devices from monitoring (optional)
-    - Critical devices with shorter delay, bypass quiet hours (optional)
-    - Time-based filtering (optional)
-    - Mobile notifications
-    - Repeat notifications for still-offline devices (optional)
-    - Persistent notifications (optional)
-    - Back online notification (optional)
-    - Logbook entries (optional)
+    - Groups all Home Assistant entities by Zigbee2MQTT device
+    - Alerts only when every loaded entity of a device is unavailable or unknown
+    - Sends one global alert when the Zigbee2MQTT bridge is unavailable
+    - Supports device-level exclusions and critical-device delays
+    - Supports quiet hours, repeat alerts, persistent notifications, and recovery alerts
+    - Treats a zero repeat interval as disabled
 
-    **Requires**: [Zigbee2MQTT](https://www.zigbee2mqtt.io/) integration.
+    **Requires**: Zigbee2MQTT with Home Assistant MQTT discovery enabled.
+
+    **Note**: A device already offline when this automation loads is detected only
+    after a new availability transition.
   domain: automation
   input:
-    # Main Settings
     main_section:
       name: Main Settings
       icon: mdi:zigbee
       collapsed: false
       input:
-        exclude_entities:
-          name: 🚫 Exclude Entities (Optional)
-          description: >
-            Optional. Entities to exclude from monitoring.
-            Useful for devices that frequently go offline.
+        exclude_devices:
+          name: 🚫 Exclude Devices (Optional)
+          description: Zigbee2MQTT devices that should never generate alerts.
           default: []
           selector:
-            entity:
+            device:
+              filter:
+                - integration: mqtt
               multiple: true
 
         offline_delay:
           name: ⏱️ Offline Delay
-          description: >
-            Wait this duration before sending alert.
-            Helps avoid false alerts from temporary disconnections.
+          description: How long a normal device must remain offline before alerting.
           default:
             hours: 0
             minutes: 30
@@ -52,25 +48,24 @@ blueprint:
           selector:
             duration:
 
-    # Critical Devices
     critical_section:
       name: Critical Devices
       icon: mdi:alert-circle
       collapsed: true
       input:
-        critical_entities:
-          name: 🚨 Critical Entities (Optional)
-          description: >
-            Optional. Critical devices that use shorter delay.
-            These devices will alert faster and bypass quiet hours.
+        critical_devices:
+          name: 🚨 Critical Devices (Optional)
+          description: Devices that use the shorter delay and bypass quiet hours.
           default: []
           selector:
-            entity:
+            device:
+              filter:
+                - integration: mqtt
               multiple: true
 
         critical_delay:
           name: 🚨 Critical Delay
-          description: Shorter delay for critical devices.
+          description: How long a critical device must remain offline before alerting.
           default:
             hours: 0
             minutes: 5
@@ -78,7 +73,6 @@ blueprint:
           selector:
             duration:
 
-    # Time Filter
     time_section:
       name: Time Filter
       icon: mdi:clock-outline
@@ -86,26 +80,25 @@ blueprint:
       input:
         enable_time_filter:
           name: 🕔 Enable Time Filter (Optional)
-          description: Only send alerts during specified time window.
+          description: Send normal-device alerts only during the selected window.
           default: false
           selector:
             boolean:
 
         time_start:
           name: ☀️ Alert Start Time
-          description: Start sending alerts at this time.
+          description: Start of the notification window.
           default: "08:00:00"
           selector:
             time:
 
         time_end:
           name: 🌙 Alert End Time
-          description: Stop sending alerts at this time.
+          description: End of the notification window.
           default: "22:00:00"
           selector:
             time:
 
-    # Notifications
     notification_section:
       name: Notifications
       icon: mdi:cellphone-message
@@ -113,7 +106,7 @@ blueprint:
       input:
         notify_devices:
           name: 📲 Notification Devices
-          description: Select mobile devices to receive offline alerts.
+          description: Mobile app devices that receive offline and recovery alerts.
           default: []
           selector:
             device:
@@ -122,8 +115,8 @@ blueprint:
               multiple: true
 
         notify_title:
-          name: ✏️ Notification Title
-          description: Title for the notification.
+          name: ✏️ Device Offline Title
+          description: Title used for individual device alerts.
           default: "⚠️ Zigbee Device Offline"
           selector:
             text:
@@ -131,18 +124,16 @@ blueprint:
         notify_message:
           name: 💬 Notification Message (Offline)
           description: >
-            Message template. Available variables:
-            {{ device_name }} - friendly name (or entity_id if not set),
-            {{ entity_id }} - entity ID.
-          default: "{{ device_name }} is offline!"
+            Available variables: {{ device_name }}, {{ device_id }},
+            {{ entity_ids }}, {{ offline_since }}, and {{ is_bridge }}.
+          default: "{{ device_name }} is offline."
           selector:
             text:
+              multiline: true
 
         repeat_notification:
-          name: 🔁 Repeat Notification (Optional)
-          description: >
-            Optional. Re-send notification if device is still offline.
-            Set to 0 to disable.
+          name: 🔁 Repeat Notification Interval (Optional)
+          description: Re-alert while offline. Set all fields to zero to disable.
           default:
             hours: 0
             minutes: 0
@@ -153,16 +144,16 @@ blueprint:
         notify_message_still_offline:
           name: 🔁 Notification Message (Still Offline)
           description: >
-            Message for repeat notifications. Available variables:
-            {{ device_name }} - friendly name (or entity_id if not set),
-            {{ entity_id }} - entity ID.
-          default: "{{ device_name }} is still offline!"
+            Available variables: {{ device_name }}, {{ device_id }},
+            {{ entity_ids }}, {{ offline_since }}, and {{ is_bridge }}.
+          default: "{{ device_name }} is still offline."
           selector:
             text:
+              multiline: true
 
         notify_back_online:
           name: ✅ Notify When Back Online (Optional)
-          description: Send notification when device comes back online.
+          description: Send one mobile notification after an alerted device recovers.
           default: false
           selector:
             boolean:
@@ -170,23 +161,20 @@ blueprint:
         notify_message_online:
           name: ✅ Notification Message (Online)
           description: >
-            Message when device comes back online. Available variables:
-            {{ device_name }} - friendly name (or entity_id if not set),
-            {{ entity_id }} - entity ID.
-          default: "{{ device_name }} is back online!"
+            Available variables: {{ device_name }}, {{ device_id }},
+            {{ entity_ids }}, {{ offline_since }}, and {{ is_bridge }}.
+          default: "{{ device_name }} is back online."
           selector:
             text:
+              multiline: true
 
         enable_persistent:
           name: 📌 Persistent Notification (Optional)
-          description: >
-            Show persistent notification in HA UI until dismissed.
-            Automatically dismissed when device comes back online.
+          description: Show one persistent notification per offline device.
           default: false
           selector:
             boolean:
 
-    # Logging
     logging_section:
       name: Logging
       icon: mdi:notebook-outline
@@ -194,64 +182,94 @@ blueprint:
       input:
         enable_logbook:
           name: 📓 Enable Logbook
-          description: Log offline events to Home Assistant logbook.
+          description: Log device-level offline and recovery events.
           default: true
           selector:
             boolean:
 
 variables:
-  entity_id: "{{ trigger.event.data.entity_id }}"
-  device_name: "{{ trigger.event.data.new_state.attributes.friendly_name | default(trigger.event.data.entity_id) if trigger.event.data.new_state else trigger.event.data.entity_id }}"
-  is_offline: >-
+  event_entity_id: "{{ trigger.event.data.entity_id | default('') }}"
+  event_device_id: "{{ device_id(event_entity_id) | default('', true) }}"
+  event_device_identifiers: >-
+    {{ device_attr(event_device_id, 'identifiers') | default([], true) | string | lower
+       if event_device_id else '' }}
+  device_entity_ids: >-
+    {{ device_entities(event_device_id) if event_device_id else [] }}
+  event_old_available: >-
+    {{ trigger.event.data.old_state is not none
+       and trigger.event.data.old_state.state not in ['unknown', 'unavailable'] }}
+  event_new_available: >-
     {{ trigger.event.data.new_state is not none
-       and trigger.event.data.old_state is not none
-       and trigger.event.data.new_state.state == 'unavailable'
-       and trigger.event.data.old_state.state not in ['unavailable', 'unknown'] }}
-  is_online: >-
-    {{ trigger.event.data.new_state is not none
-       and trigger.event.data.old_state is not none
-       and trigger.event.data.old_state.state == 'unavailable'
-       and trigger.event.data.new_state.state != 'unavailable' }}
-  exclude_entities: !input exclude_entities
-  critical_entities: !input critical_entities
-  is_critical: "{{ entity_id in critical_entities }}"
+       and trigger.event.data.new_state.state not in ['unknown', 'unavailable'] }}
+  event_state_changed: >-
+    {{ trigger.event.data.old_state is not none
+       and trigger.event.data.new_state is not none
+       and trigger.event.data.old_state.state != trigger.event.data.new_state.state }}
+  event_new_last_changed: >-
+    {{ as_timestamp(trigger.event.data.new_state.last_changed, 0)
+       if trigger.event.data.new_state is not none else 0 }}
+  is_z2m_device: "{{ 'zigbee2mqtt_' in event_device_identifiers }}"
+  is_bridge: "{{ 'zigbee2mqtt_bridge_' in event_device_identifiers }}"
+  bridge_device_id: >-
+    {{ event_device_id if is_bridge else
+       device_attr(event_device_id, 'via_device_id') | default('', true) }}
+  exclude_devices: !input exclude_devices
+  critical_devices: !input critical_devices
+  is_critical: "{{ is_bridge or event_device_id in critical_devices }}"
+  offline_candidate: >-
+    {{ is_z2m_device
+       and event_device_id not in exclude_devices
+       and not event_new_available
+       and event_state_changed }}
+  online_cleanup_candidate: >-
+    {{ is_z2m_device and not event_old_available and event_new_available }}
+  device_name: >-
+    {{ device_name(event_device_id) | default(event_entity_id, true) }}
+  entity_ids: "{{ device_entity_ids | join(', ') }}"
+  device_id: "{{ event_device_id }}"
+  offline_since: >-
+    {{ as_local(trigger.event.data.new_state.last_changed).isoformat()
+       if trigger.event.data.new_state is not none else '' }}
+  repeat_notification: !input repeat_notification
+  repeat_seconds: >-
+    {{ (repeat_notification.hours | int) * 3600
+       + (repeat_notification.minutes | int) * 60
+       + (repeat_notification.seconds | int) }}
+  persistent_id: "z2m_offline_{{ event_device_id }}"
   notify_devices: !input notify_devices
   notify_title: !input notify_title
-  notify_msg_offline: !input notify_message
-  notify_msg_still_offline: !input notify_message_still_offline
-  notify_msg_online: !input notify_message_online
   notify_back_online: !input notify_back_online
   enable_persistent: !input enable_persistent
   enable_logbook: !input enable_logbook
   enable_time_filter: !input enable_time_filter
-  time_start: !input time_start
-  time_end: !input time_end
-  offline_delay: !input offline_delay
-  offline_delay_seconds: "{{ offline_delay.hours * 3600 + offline_delay.minutes * 60 + offline_delay.seconds }}"
-  persistent_id: "z2m_offline_{{ entity_id | slugify }}"
+  effective_title: >-
+    {{ '🚨 Zigbee2MQTT Bridge Offline' if is_bridge else
+       ('🚨 ' if is_critical else '') ~ notify_title }}
+  notify_msg_offline: !input notify_message
+  notify_msg_still_offline: !input notify_message_still_offline
+  notify_msg_online: !input notify_message_online
 
 trigger:
   - platform: event
     event_type: state_changed
-    id: state_change
 
 condition:
   - condition: template
-    value_template: >
-      {{ trigger.event.data.new_state is not none
-         and trigger.event.data.old_state is not none
-         and (is_offline or is_online)
-         and 'mqtt' in (device_attr(entity_id, 'identifiers') | string | lower)
-         and entity_id not in exclude_entities }}
+    value_template: >-
+      {{ trigger.event.data.old_state is not none
+         and trigger.event.data.new_state is not none
+         and event_device_id != ''
+         and (offline_candidate or online_cleanup_candidate) }}
 
 action:
   - choose:
-      # Device went OFFLINE
       - conditions:
           - condition: template
-            value_template: "{{ is_offline }}"
+            value_template: "{{ offline_candidate }}"
         sequence:
-          # Use critical delay for critical devices, normal delay for others
+          - delay:
+              seconds: 1
+
           - if:
               - condition: template
                 value_template: "{{ is_critical }}"
@@ -259,108 +277,280 @@ action:
               - delay: !input critical_delay
             else:
               - delay: !input offline_delay
-          # Check if still offline
+
+          - variables:
+              latest_invalid_entity_id: >-
+                {% set ns = namespace(entity_id='', timestamp=0) %}
+                {% for candidate in device_entities(event_device_id) %}
+                  {% set candidate_state = states[candidate] %}
+                  {% if candidate_state is defined and not has_value(candidate) %}
+                    {% set candidate_timestamp = as_timestamp(candidate_state.last_changed, 0) %}
+                    {% if candidate_timestamp > ns.timestamp %}
+                      {% set ns.entity_id = candidate %}
+                      {% set ns.timestamp = candidate_timestamp %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+                {{ ns.entity_id }}
+              device_is_offline: >-
+                {% set ns = namespace(available=false) %}
+                {% set candidates = device_entities(event_device_id) %}
+                {% for candidate in candidates %}
+                  {% if has_value(candidate) %}
+                    {% set ns.available = true %}
+                  {% endif %}
+                {% endfor %}
+                {{ not ns.available and candidates | count > 0 }}
+              bridge_is_available: >-
+                {% if is_bridge or not bridge_device_id %}
+                  true
+                {% else %}
+                  {% set ns = namespace(available=false) %}
+                  {% for candidate in device_entities(bridge_device_id) %}
+                    {% if has_value(candidate) %}
+                      {% set ns.available = true %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.available }}
+                {% endif %}
+
           - condition: template
-            value_template: "{{ is_state(entity_id, 'unavailable') }}"
-          # Check time filter (skip if outside quiet hours, unless critical)
+            value_template: >-
+              {{ device_is_offline
+                 and latest_invalid_entity_id == event_entity_id
+                 and states[event_entity_id] is defined
+                 and as_timestamp(states[event_entity_id].last_changed, 0)
+                     == event_new_last_changed
+                 and (is_bridge or bridge_is_available) }}
+
+          - if:
+              - condition: template
+                value_template: "{{ enable_time_filter and not is_critical }}"
+            then:
+              - repeat:
+                  while:
+                    - condition: template
+                      value_template: >-
+                        {% set device = namespace(available=false) %}
+                        {% for candidate in device_entities(event_device_id) %}
+                          {% if has_value(candidate) %}
+                            {% set device.available = true %}
+                          {% endif %}
+                        {% endfor %}
+                        {% set bridge = namespace(available=is_bridge or not bridge_device_id) %}
+                        {% if not bridge.available %}
+                          {% for candidate in device_entities(bridge_device_id) %}
+                            {% if has_value(candidate) %}
+                              {% set bridge.available = true %}
+                            {% endif %}
+                          {% endfor %}
+                        {% endif %}
+                        {{ not device.available and bridge.available }}
+                    - condition: not
+                      conditions:
+                        - condition: time
+                          after: !input time_start
+                          before: !input time_end
+                  sequence:
+                    - wait_for_trigger:
+                        - platform: time
+                          at: !input time_start
+                        - platform: event
+                          event_type: state_changed
+
+              - condition: template
+                value_template: >-
+                  {% set device = namespace(available=false) %}
+                  {% for candidate in device_entities(event_device_id) %}
+                    {% if has_value(candidate) %}
+                      {% set device.available = true %}
+                    {% endif %}
+                  {% endfor %}
+                  {% set bridge = namespace(available=is_bridge or not bridge_device_id) %}
+                  {% if not bridge.available %}
+                    {% for candidate in device_entities(bridge_device_id) %}
+                      {% if has_value(candidate) %}
+                        {% set bridge.available = true %}
+                      {% endif %}
+                    {% endfor %}
+                  {% endif %}
+                  {{ not device.available and bridge.available }}
+
           - condition: or
             conditions:
               - condition: template
-                value_template: "{{ not enable_time_filter }}"
-              - condition: template
-                value_template: "{{ is_critical }}"
+                value_template: "{{ not enable_time_filter or is_critical }}"
               - condition: time
                 after: !input time_start
                 before: !input time_end
-          # Logbook
+
           - if:
               - condition: template
                 value_template: "{{ enable_logbook }}"
             then:
               - action: logbook.log
                 data:
-                  name: "Z2M Offline"
-                  message: "{{ device_name }} went offline{{ ' (CRITICAL)' if is_critical else '' }}"
-          # Persistent notification
+                  name: "Zigbee2MQTT Offline"
+                  message: >-
+                    {{ device_name }} is offline{{ ' (bridge)' if is_bridge else
+                    (' (critical)' if is_critical else '') }}
+
           - if:
               - condition: template
                 value_template: "{{ enable_persistent }}"
             then:
               - action: persistent_notification.create
                 data:
-                  title: "{{ '🚨 ' if is_critical else '' }}{{ notify_title }}"
+                  title: "{{ effective_title }}"
                   message: "{{ notify_msg_offline }}"
                   notification_id: "{{ persistent_id }}"
-          # Mobile notifications
+
           - repeat:
               for_each: !input notify_devices
               sequence:
                 - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                   data:
-                    title: "{{ '🚨 ' if is_critical else '' }}{{ notify_title }}"
+                    title: "{{ effective_title }}"
                     message: "{{ notify_msg_offline }}"
                   continue_on_error: true
-          # Repeat notification loop
-          - repeat:
-              while:
-                - condition: template
-                  value_template: "{{ is_state(entity_id, 'unavailable') }}"
-              sequence:
-                - delay: !input repeat_notification
-                - condition: template
-                  value_template: "{{ is_state(entity_id, 'unavailable') }}"
-                # Check time filter for repeat
-                - condition: or
-                  conditions:
-                    - condition: template
-                      value_template: "{{ not enable_time_filter }}"
-                    - condition: template
-                      value_template: "{{ is_critical }}"
-                    - condition: time
-                      after: !input time_start
-                      before: !input time_end
-                - repeat:
-                    for_each: !input notify_devices
-                    sequence:
-                      - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
-                        data:
-                          title: "{{ '🚨 ' if is_critical else '' }}{{ notify_title }} (Still Offline)"
-                          message: "{{ notify_msg_still_offline }}"
-                        continue_on_error: true
 
-      # Device came back ONLINE
-      - conditions:
-          - condition: template
-            value_template: "{{ is_online and notify_back_online }}"
-        sequence:
-          # Only notify if device was offline for at least the offline_delay duration (filters startup false positives)
-          - condition: template
-            value_template: >
-              {{ (as_timestamp(trigger.event.data.new_state.last_changed) -
-                  as_timestamp(trigger.event.data.old_state.last_changed)) > (offline_delay_seconds | int) }}
+          - if:
+              - condition: template
+                value_template: "{{ repeat_seconds > 0 }}"
+            then:
+              - repeat:
+                  while:
+                    - condition: template
+                      value_template: >-
+                        {% set ns = namespace(available=false) %}
+                        {% for candidate in device_entities(event_device_id) %}
+                          {% if has_value(candidate) %}
+                            {% set ns.available = true %}
+                          {% endif %}
+                        {% endfor %}
+                        {{ not ns.available }}
+                  sequence:
+                    - wait_template: >-
+                        {% set ns = namespace(available=false) %}
+                        {% for candidate in device_entities(event_device_id) %}
+                          {% if has_value(candidate) %}
+                            {% set ns.available = true %}
+                          {% endif %}
+                        {% endfor %}
+                        {{ ns.available }}
+                      timeout: !input repeat_notification
+                      continue_on_timeout: true
+
+                    - if:
+                        - condition: template
+                          value_template: "{{ not wait.completed }}"
+                      then:
+                        - variables:
+                            repeat_bridge_is_available: >-
+                              {% if is_bridge or not bridge_device_id %}
+                                true
+                              {% else %}
+                                {% set ns = namespace(available=false) %}
+                                {% for candidate in device_entities(bridge_device_id) %}
+                                  {% if has_value(candidate) %}
+                                    {% set ns.available = true %}
+                                  {% endif %}
+                                {% endfor %}
+                                {{ ns.available }}
+                              {% endif %}
+
+                        - condition: template
+                          value_template: "{{ is_bridge or repeat_bridge_is_available }}"
+
+                        - condition: or
+                          conditions:
+                            - condition: template
+                              value_template: "{{ not enable_time_filter or is_critical }}"
+                            - condition: time
+                              after: !input time_start
+                              before: !input time_end
+
+                        - repeat:
+                            for_each: !input notify_devices
+                            sequence:
+                              - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                                data:
+                                  title: "{{ effective_title }} (Still Offline)"
+                                  message: "{{ notify_msg_still_offline }}"
+                                continue_on_error: true
+            else:
+              - wait_template: >-
+                  {% set ns = namespace(available=false) %}
+                  {% for candidate in device_entities(event_device_id) %}
+                    {% if has_value(candidate) %}
+                      {% set ns.available = true %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.available }}
+
+          - action: persistent_notification.dismiss
+            data:
+              notification_id: "{{ persistent_id }}"
+            continue_on_error: true
+
           - if:
               - condition: template
                 value_template: "{{ enable_logbook }}"
             then:
               - action: logbook.log
                 data:
-                  name: "Z2M Online"
+                  name: "Zigbee2MQTT Online"
                   message: "{{ device_name }} is back online"
+
           - if:
               - condition: template
-                value_template: "{{ enable_persistent }}"
+                value_template: "{{ notify_back_online }}"
             then:
-              - action: persistent_notification.dismiss
-                data:
-                  notification_id: "{{ persistent_id }}"
-          - repeat:
-              for_each: !input notify_devices
-              sequence:
-                - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
-                  data:
-                    title: "✅ Zigbee Device Online"
-                    message: "{{ notify_msg_online }}"
-                  continue_on_error: true
+              - repeat:
+                  for_each: !input notify_devices
+                  sequence:
+                    - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+                      data:
+                        title: >-
+                          {{ '✅ Zigbee2MQTT Bridge Online' if is_bridge else
+                             '✅ Zigbee Device Online' }}
+                        message: "{{ notify_msg_online }}"
+                      continue_on_error: true
+
+      - conditions:
+          - condition: template
+            value_template: "{{ online_cleanup_candidate }}"
+        sequence:
+          - delay:
+              seconds: 1
+
+          - variables:
+              earliest_valid_entity_id: >-
+                {% set ns = namespace(entity_id='', timestamp=99999999999) %}
+                {% for candidate in device_entities(event_device_id) %}
+                  {% set candidate_state = states[candidate] %}
+                  {% if candidate_state is defined and has_value(candidate) %}
+                    {% set candidate_timestamp = as_timestamp(candidate_state.last_changed, 0) %}
+                    {% if candidate_timestamp < ns.timestamp %}
+                      {% set ns.entity_id = candidate %}
+                      {% set ns.timestamp = candidate_timestamp %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+                {{ ns.entity_id }}
+
+          - condition: template
+            value_template: >-
+              {{ earliest_valid_entity_id == event_entity_id
+                 and states[event_entity_id] is defined
+                 and as_timestamp(states[event_entity_id].last_changed, 0)
+                     == event_new_last_changed }}
+
+          - action: persistent_notification.dismiss
+            data:
+              notification_id: "{{ persistent_id }}"
+            continue_on_error: true
 
 mode: parallel
-max: 10
+max: 100
+max_exceeded: warning
