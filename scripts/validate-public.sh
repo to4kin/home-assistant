@@ -18,5 +18,6 @@ while IFS= read -r -d '' converter_file; do
   echo "JavaScript OK: $converter_file"
 done < <(find zigbee2mqtt/external_converters -type f -name '*.mjs' -print0)
 
+ruby scripts/check-whitespace.rb
 git diff --check
 echo "Public repository validation passed"
