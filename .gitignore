@@ -1,8 +1,39 @@
-# Personal configuration files (contain sensitive data)
-dashboard.yaml
+# Household Home Assistant configuration
+/automations.yaml
+/configuration.yaml
+/dashboard.yaml
+/scripts.yaml
+/scenes.yaml
+/secrets.yaml
+/known_devices.yaml
+/groups.yaml
+/customize.yaml
+/includes/
+/packages/
+/themes/
+/www/
+/docs/yandex-voice-commands.md
 
-# Home Assistant secrets
-secrets.yaml
+# Home Assistant runtime data
+/.storage/
+/.cloud/
+/.HA_VERSION
+/.uuid
+/.ha_run.lock
+/deps/
+/tts/
+/backups/
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.log.*
+*.tar
+
+# Zigbee2MQTT runtime and private configuration
+/zigbee2mqtt/*
+!/zigbee2mqtt/external_converters/
+!/zigbee2mqtt/external_converters/**
 
 # Local development
 .vscode/

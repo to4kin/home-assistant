@@ -1,0 +1,113 @@
+import * as m from "zigbee-herdsman-converters/lib/modernExtend";
+import { Zcl } from "zigbee-herdsman";
+
+const manufacturerCode = 4447;
+
+export default {
+  zigbeeModel: ["lumi.airrtc.aeu001"],
+  model: "UT-A01E",
+  vendor: "Aqara",
+  description: "Floor heating thermostat W500",
+  extend: [
+    m.electricityMeter({
+      current: false,
+      voltage: false,
+      power: { divisor: 1 },
+      energy: { divisor: 1000 },
+    }),
+    m.thermostat({
+      setpoints: {
+        values: { occupiedHeatingSetpoint: { min: 5, max: 40, step: 0.5 } },
+      },
+      localTemperatureCalibration: { values: true, configure: { skip: true } },
+      temperatureSetpointHold: true,
+      temperatureSetpointHoldDuration: true,
+      systemMode: { values: ["off", "heat"], configure: { skip: true } },
+      runningState: {
+        values: ["idle", "heat", "cool", "fan_only"],
+      },
+      setpointsLimit: {
+        maxHeatSetpointLimit: { min: 5, max: 30, step: 0.5 },
+        minHeatSetpointLimit: { min: 5, max: 30, step: 0.5 },
+      },
+    }),
+    m.enumLookup({
+      name: "preset",
+      lookup: {
+        home: 1,
+        away: 2,
+        sleep: 3,
+        vacation: 5,
+        evening: 6,
+        manual: 8,
+      },
+      cluster: "manuSpecificLumi",
+      attribute: { ID: 0x0311, type: Zcl.DataType.UINT8 },
+      description: "Preset",
+      access: "ALL",
+      zigbeeCommandOptions: { manufacturerCode },
+    }),
+    m.enumLookup({
+      name: "state",
+      lookup: { working: 0, idle: 2 },
+      cluster: "manuSpecificLumi",
+      attribute: { ID: 0x0310, type: Zcl.DataType.UINT8 },
+      description: "State",
+      access: "STATE_GET",
+      zigbeeCommandOptions: { manufacturerCode },
+    }),
+    m.humidity(),
+    m.enumLookup({
+      name: "sensor",
+      lookup: { internal: 0, external: 1, ntc: 2 },
+      cluster: "manuSpecificLumi",
+      attribute: { ID: 0x0280, type: Zcl.DataType.UINT8 },
+      description: "Temperature sensor source",
+      access: "ALL",
+      zigbeeCommandOptions: { manufacturerCode },
+    }),
+    m.enumLookup({
+      name: "ntc_sensor_type",
+      lookup: { ntc_10k: 10, ntc_50k: 50, ntc_100k: 100, unknown: 10000 },
+      cluster: "manuSpecificLumi",
+      attribute: { ID: 0x0315, type: Zcl.DataType.UINT32 },
+      description: "NTC sensor type (k - KOhm)",
+      access: "ALL",
+      zigbeeCommandOptions: { manufacturerCode },
+    }),
+    m.binary({
+      name: "window_detection",
+      valueOn: ["ON", 1],
+      valueOff: ["OFF", 0],
+      cluster: "manuSpecificLumi",
+      attribute: { ID: 0x0273, type: 0x20 },
+      description: "Enables/disables window detection on the device",
+      access: "ALL",
+      zigbeeCommandOptions: { manufacturerCode },
+    }),
+    // lumi.lumiModernExtend.lumiPowerOutageMemory(),
+    m.binary({
+      name: "child_lock",
+      valueOn: ["LOCK", 1],
+      valueOff: ["UNLOCK", 0],
+      cluster: "manuSpecificLumi",
+      attribute: { ID: 0x0277, type: 0x20 },
+      description: "Enables/disables physical input on the device",
+      access: "ALL",
+      zigbeeCommandOptions: { manufacturerCode },
+    }),
+    m.numeric({
+      name: "hysteresis",
+      valueMin: 0,
+      valueMax: 3,
+      valueStep: 0.5,
+      scale: 10,
+      unit: "°C",
+      cluster: "manuSpecificLumi",
+      attribute: { ID: 0x030c, type: Zcl.DataType.UINT8 },
+      description: "Hysteresis",
+      zigbeeCommandOptions: { manufacturerCode },
+    }),
+    m.identify(),
+  ],
+};

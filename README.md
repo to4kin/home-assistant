@@ -1,6 +1,8 @@
-# Home Assistant
+# Home Assistant Blueprints
 
-My Home Assistant blueprints and configurations.
+Reusable Home Assistant automation blueprints and Zigbee2MQTT converters.
+
+This public repository intentionally excludes the household Home Assistant configuration. The blueprint file paths remain stable because existing Home Assistant installations import them directly.
 
 ## Blueprints
 
@@ -117,3 +119,20 @@ Per-room humidity monitoring with mould and condensation risk calculation.
 - Logbook entries (optional)
 
 **Requires:** Create one automation per room. Optionally create `input_text` helpers for mould/condensation risk status.
+
+## Zigbee2MQTT converters
+
+### Aqara W500 floor-heating thermostat
+
+The reusable external converter is available at [`zigbee2mqtt/external_converters/aqara_w500.mjs`](zigbee2mqtt/external_converters/aqara_w500.mjs).
+
+## Development
+
+Run the local repository checks before submitting changes:
+
+```bash
+bash scripts/check-public-boundary.sh
+bash scripts/validate-public.sh
+```
+
+Syntax checks do not replace testing behavior in a compatible Home Assistant instance.
