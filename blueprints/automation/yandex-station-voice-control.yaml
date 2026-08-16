@@ -5,7 +5,7 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/yandex-station-voice-control.yaml
   description: |
-    **Version**: 1.2.1
+    **Version**: 1.2.2
 
     Control any entity using voice commands from Yandex Station.
 
@@ -15,6 +15,7 @@ blueprint:
     - Source station filtering (optional)
     - Turn on, turn off, and toggle commands (optional)
     - Per-action delays (optional)
+    - Commands are queued and processed in arrival order
     - Mobile notifications (optional)
     - TTS confirmation (optional)
     - Logbook entries (optional)
@@ -250,8 +251,14 @@ variables:
   has_notify: "{{ notify_devices | length > 0 }}"
   has_tts: "{{ tts_entity != [] and tts_entity != '' }}"
   has_source_filter: "{{ source_stations | length > 0 }}"
-  event_entity: "{{ trigger.event.data.entity_id | default('') }}"
+  event_entity: "{{ trigger.event.data.entity_id | default('', true) }}"
+  event_value: "{{ trigger.event.data.value | default('', true) }}"
   is_valid_source: "{{ not has_source_filter or event_entity in source_stations }}"
+  is_valid_command: >-
+    {{ event_value is string
+       and ((turn_on_cmd != '' and event_value == turn_on_cmd)
+         or (turn_off_cmd != '' and event_value == turn_off_cmd)
+         or (toggle_cmd != '' and event_value == toggle_cmd)) }}
   # Message inputs - read AFTER template variables are defined
   tts_confirm_on: !input tts_confirm_on
   tts_confirm_off: !input tts_confirm_off
@@ -263,45 +270,19 @@ variables:
 trigger:
   - platform: event
     event_type: yandex_speaker
-    id: turn_on
-
-  - platform: event
-    event_type: yandex_speaker
-    id: turn_off
-
-  - platform: event
-    event_type: yandex_speaker
-    id: toggle
+    id: voice_command
 
 condition:
   - condition: template
     value_template: "{{ is_valid_source }}"
-  - condition: or
-    conditions:
-      - condition: and
-        conditions:
-          - condition: trigger
-            id: turn_on
-          - condition: template
-            value_template: "{{ turn_on_cmd != '' and trigger.event.data.value == turn_on_cmd }}"
-      - condition: and
-        conditions:
-          - condition: trigger
-            id: turn_off
-          - condition: template
-            value_template: "{{ turn_off_cmd != '' and trigger.event.data.value == turn_off_cmd }}"
-      - condition: and
-        conditions:
-          - condition: trigger
-            id: toggle
-          - condition: template
-            value_template: "{{ toggle_cmd != '' and trigger.event.data.value == toggle_cmd }}"
+  - condition: template
+    value_template: "{{ is_valid_command }}"
 
 action:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ turn_on_cmd != '' and trigger.event.data.value == turn_on_cmd }}"
+            value_template: "{{ turn_on_cmd != '' and event_value == turn_on_cmd }}"
         sequence:
           - delay: !input turn_on_delay
           - action: homeassistant.turn_on
@@ -341,7 +322,7 @@ action:
 
       - conditions:
           - condition: template
-            value_template: "{{ turn_off_cmd != '' and trigger.event.data.value == turn_off_cmd }}"
+            value_template: "{{ turn_off_cmd != '' and event_value == turn_off_cmd }}"
         sequence:
           - delay: !input turn_off_delay
           - action: homeassistant.turn_off
@@ -381,7 +362,7 @@ action:
 
       - conditions:
           - condition: template
-            value_template: "{{ toggle_cmd != '' and trigger.event.data.value == toggle_cmd }}"
+            value_template: "{{ toggle_cmd != '' and event_value == toggle_cmd }}"
         sequence:
           - delay: !input toggle_delay
           - action: homeassistant.toggle
@@ -419,4 +400,6 @@ action:
                         message: "{{ notify_msg_toggle }}"
                       continue_on_error: true
 
-mode: single
+mode: queued
+max: 10
+max_exceeded: warning

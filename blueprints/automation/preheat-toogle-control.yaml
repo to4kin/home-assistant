@@ -5,13 +5,13 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/preheat-toogle-control.yaml
   description: |
-    **Version**: 1.3.0
+    **Version**: 1.3.1
 
     Manages a preheat toggle for on-the-way-home heating.
 
     **Features**:
     - Configurable safety timeout (default: 2 hours)
-    - Outside temperature threshold, summer mode (optional)
+    - Outside temperature threshold using a temperature sensor or weather entity (optional)
     - Auto-disable when family arrives home
     - Block enabling if someone is already home
     - Configurable arrival/leaving delays (default: 30 seconds)
@@ -196,9 +196,21 @@ variables:
                      | selectattr('state', 'eq', 'home')
                      | map(attribute='name')
                      | join(', ') }}
-  is_too_warm: >
-    {{ input_outside_temp != [] and
-       states(input_outside_temp) | float(0) >= input_outside_temp_threshold }}
+  input_outside_temp_domain: >-
+    {{ input_outside_temp.split('.')[0] if input_outside_temp else '' }}
+  outside_temp_raw: >-
+    {% if input_outside_temp_domain == 'weather' %}
+      {{ state_attr(input_outside_temp, 'temperature') }}
+    {% elif input_outside_temp %}
+      {{ states(input_outside_temp) }}
+    {% else %}
+      {{ none }}
+    {% endif %}
+  outside_temperature: >-
+    {{ outside_temp_raw | float if is_number(outside_temp_raw) else none }}
+  is_too_warm: >-
+    {{ outside_temperature is not none
+       and outside_temperature >= input_outside_temp_threshold }}
 
 trigger:
   - platform: template
@@ -344,7 +356,7 @@ action:
               - action: logbook.log
                 data:
                   name: "Preheat Control"
-                  message: "Preheat blocked - outside temperature {{ states(input_outside_temp) }}°C is above threshold"
+                  message: "Preheat blocked - outside temperature {{ outside_temperature }}°C is above threshold"
           - if:
               - condition: template
                 value_template: "{{ has_notify }}"
@@ -355,7 +367,7 @@ action:
                     - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
                       data:
                         title: "{{ notify_title }}"
-                        message: "Cannot enable preheat - too warm outside ({{ states(input_outside_temp) }}°C)."
+                        message: "Cannot enable preheat - too warm outside ({{ outside_temperature }}°C)."
                       continue_on_error: true
 
       - conditions:

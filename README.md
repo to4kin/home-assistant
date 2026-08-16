@@ -17,7 +17,7 @@ Manages a preheat toggle for on-the-way-home heating.
 **Features:**
 
 - Configurable safety timeout (default: 2 hours)
-- Outside temperature threshold, summer mode (optional)
+- Outside temperature threshold using a temperature sensor or weather entity (optional)
 - Auto-disable when family arrives home
 - Block enabling if someone is already home
 - Configurable arrival/leaving delays (default: 30 seconds)
@@ -44,6 +44,7 @@ Control any entity using voice commands from Yandex Station.
 - Source station filtering (optional)
 - Turn on, turn off, and toggle commands (optional)
 - Per-action delays (optional)
+- Commands are queued and processed in arrival order
 - Mobile notifications (optional)
 - TTS confirmation (optional)
 - Logbook entries (optional)
@@ -86,6 +87,8 @@ Monitors humidity sensors and sends alerts when humidity exceeds threshold.
 - Monitor multiple humidity sensors
 - Room detection from sensor area/friendly name
 - Configurable humidity threshold (default: 60%)
+- Notifications use the current humidity and weather values after the configured delay
+- Gradual humidity recovery is tracked across the hysteresis boundary
 - Outside humidity/temperature/rain checks (optional)
 - Presence awareness (optional)
 - Time-based filtering (optional)
@@ -96,21 +99,23 @@ Monitors humidity sensors and sends alerts when humidity exceeds threshold.
 
 **Requires:** Assign humidity sensors to areas in Home Assistant for automatic room detection.
 
+**Restart limitation:** Home Assistant or automation restart cancels a lifecycle that is waiting to send its normalized notification.
+
 ---
 
 #### [Humidity Room Monitor](blueprints/automation/humidity-room-monitor.yaml)
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fto4kin%2Fhome-assistant%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhumidity-room-monitor.yaml)
 
-Per-room humidity monitoring with mould and condensation risk calculation.
+Per-room humidity monitoring with independent mould and condensation risk lifecycles.
 
 **Features:**
 
-- Monitor one room's humidity and temperature
-- Mould risk detection (warning/danger thresholds)
-- Condensation risk calculation (dew point vs window temperature)
-- Configurable notification level (Warning or Danger)
-- Update helpers for dashboard display (optional)
+- Sustained mould risk detection with configurable warning and danger thresholds
+- Sustained condensation risk calculation from dew point and estimated window temperature
+- Independent alert and recovery notifications for mould and condensation risks
+- Configurable hysteresis to prevent notification flapping
+- Room names derived from Home Assistant entity metadata
 - Weather-aware recommendations
 - Presence awareness (optional)
 - Time-based filtering (optional)
@@ -118,7 +123,9 @@ Per-room humidity monitoring with mould and condensation risk calculation.
 - TTS announcements (optional)
 - Logbook entries (optional)
 
-**Requires:** Create one automation per room. Optionally create `input_text` helpers for mould/condensation risk status.
+**Breaking change in 2.0:** Removed the room-name and dashboard-helper inputs. Existing automations must be deleted and recreated from the updated blueprint; no compatibility migration is provided.
+
+**Restart limitation:** Home Assistant or automation restart resets in-progress alert delays and recovery waits. Runtime behavior should be verified in a compatible Home Assistant test instance.
 
 ## Zigbee2MQTT converters
 
@@ -128,11 +135,11 @@ The reusable external converter is available at [`zigbee2mqtt/external_converter
 
 ## Development
 
-Run the local repository checks before submitting changes:
+Run validation and regression tests before submitting changes:
 
 ```bash
-bash scripts/check-public-boundary.sh
 bash scripts/validate-public.sh
+bash scripts/test.sh
 ```
 
 Syntax checks do not replace testing behavior in a compatible Home Assistant instance.

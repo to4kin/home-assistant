@@ -5,7 +5,7 @@ blueprint:
     min_version: "2025.1.0"
   source_url: https://github.com/to4kin/home-assistant/blob/main/blueprints/automation/humidity-alert.yaml
   description: |
-    **Version**: 1.1.0
+    **Version**: 1.2.0
 
     Monitors humidity sensors and sends alerts when humidity exceeds threshold.
 
@@ -13,6 +13,8 @@ blueprint:
     - Monitor multiple humidity sensors
     - Room detection from sensor area/friendly name
     - Configurable humidity threshold (default: 60%)
+    - Notifications use current humidity and weather values after the delay
+    - Hysteresis recovery across gradual humidity changes
     - Outside humidity/temperature/rain checks (optional)
     - Presence awareness (optional)
     - Time-based filtering (optional)
@@ -312,30 +314,9 @@ blueprint:
             boolean:
 
 variables:
-  # Core inputs needed for derived variables
   humidity_sensors: !input humidity_sensors
   humidity_threshold: !input humidity_threshold
   humidity_hysteresis: !input humidity_hysteresis
-  # Derived variables (with safe defaults for manual trigger) - MUST be before message inputs
-  entity_id: "{{ trigger.entity_id | default('') }}"
-  device_name: "{{ state_attr(entity_id, 'friendly_name') | default(entity_id) if entity_id else 'Unknown' }}"
-  current_humidity: "{{ trigger.to_state.state | float(0) if trigger.to_state is defined else 0 }}"
-  previous_humidity: "{{ trigger.from_state.state | float(0) if trigger.from_state is defined else 0 }}"
-  # Aliases for message templates - MUST be before message inputs
-  humidity: "{{ current_humidity }}"
-  threshold: "{{ humidity_threshold }}"
-  room_name: >
-    {% if entity_id %}
-      {% set area = area_name(entity_id) %}
-      {% if area %}
-        {{ area }}
-      {% else %}
-        {{ state_attr(entity_id, 'friendly_name') | default(entity_id) | regex_replace(' [Hh]umidity.*', '') }}
-      {% endif %}
-    {% else %}
-      Unknown
-    {% endif %}
-  # Other inputs
   weather_entity: !input weather_entity
   outside_humidity_sensor: !input outside_humidity_sensor
   outside_temp_sensor: !input outside_temp_sensor
@@ -344,169 +325,205 @@ variables:
   presence_entities: !input presence_entities
   notify_devices: !input notify_devices
   notify_title: !input notify_title
-  # Message inputs - read AFTER template variables are defined
-  notify_msg: !input notify_message
-  notify_msg_weather: !input notify_message_weather
   notify_normalized: !input notify_normalized
-  notify_msg_normalized: !input notify_message_normalized
   enable_tts: !input enable_tts
   tts_target: !input tts_target
-  tts_message: !input tts_message
-  humidity_threshold_duration: !input humidity_threshold_duration
   enable_time_filter: !input enable_time_filter
-  time_start: !input time_start
-  time_end: !input time_end
   enable_logbook: !input enable_logbook
-  is_high: "{{ current_humidity > humidity_threshold }}"
-  was_high: "{{ previous_humidity > humidity_threshold }}"
-  is_normalized: "{{ current_humidity <= (humidity_threshold - humidity_hysteresis) and was_high }}"
-  crossed_threshold: "{{ is_high and not was_high }}"
-  # Weather checks
-  outside_humidity: >
-    {% if outside_humidity_sensor %}
-      {{ states(outside_humidity_sensor) | float(0) }}
-    {% elif weather_entity %}
-      {{ state_attr(weather_entity, 'humidity') | float(0) }}
-    {% else %}
-      0
-    {% endif %}
-  outside_temp: >
-    {% if outside_temp_sensor %}
-      {{ states(outside_temp_sensor) | float(0) }}
-    {% elif weather_entity %}
-      {{ state_attr(weather_entity, 'temperature') | float(20) }}
-    {% else %}
-      20
-    {% endif %}
-  is_raining: >
-    {% if weather_entity and check_rain %}
-      {{ states(weather_entity) in ['rainy', 'pouring', 'snowy', 'snowy-rainy', 'hail', 'lightning-rainy'] }}
-    {% else %}
-      false
-    {% endif %}
-  weather_ok: >
-    {{ outside_humidity < current_humidity
-       and outside_temp >= min_outside_temp
-       and not is_raining }}
-  # Presence check
-  anyone_home: >
-    {% if presence_entities | length == 0 %}
-      true
-    {% else %}
-      {{ presence_entities | expand | selectattr('state', 'eq', 'home') | list | count > 0 }}
-    {% endif %}
+  entity_id: "{{ trigger.entity_id | default('', true) }}"
+  old_humidity_is_numeric: >-
+    {{ trigger.from_state is defined and trigger.from_state is not none
+       and is_number(trigger.from_state.state) }}
+  new_humidity_is_numeric: >-
+    {{ trigger.to_state is defined and trigger.to_state is not none
+       and is_number(trigger.to_state.state) }}
+  previous_humidity: >-
+    {{ trigger.from_state.state | float if old_humidity_is_numeric else none }}
+  current_humidity: >-
+    {{ trigger.to_state.state | float if new_humidity_is_numeric else none }}
+  crossed_threshold: >-
+    {{ old_humidity_is_numeric and new_humidity_is_numeric
+       and previous_humidity <= humidity_threshold
+       and current_humidity > humidity_threshold }}
 trigger:
   - platform: state
     entity_id: !input humidity_sensors
     id: humidity_change
 
 condition:
-  # Must be a valid humidity value
   - condition: template
-    value_template: "{{ current_humidity > 0 }}"
+    value_template: "{{ crossed_threshold }}"
 
 action:
-  - choose:
-      # Humidity crossed threshold (going HIGH)
-      - conditions:
-          - condition: template
-            value_template: "{{ crossed_threshold }}"
-        sequence:
-          # Wait before alerting (avoid false alerts from temporary spikes)
-          - delay: !input humidity_threshold_duration
-          # Re-check if humidity is still high after delay
-          - condition: template
-            value_template: "{{ states(entity_id) | float(0) > humidity_threshold }}"
-          # Check presence
-          - condition: template
-            value_template: "{{ anyone_home }}"
-          # Check time filter
-          - condition: or
-            conditions:
-              - condition: template
-                value_template: "{{ not enable_time_filter }}"
-              - condition: time
-                after: !input time_start
-                before: !input time_end
-          # Logbook
-          - if:
-              - condition: template
-                value_template: "{{ enable_logbook }}"
-            then:
-              - action: logbook.log
-                data:
-                  name: "Humidity Alert"
-                  message: "{{ room_name }}: {{ current_humidity }}% (threshold: {{ humidity_threshold }}%){{ ' - Weather OK' if weather_ok else ' - Weather not ideal' }}"
-          # Mobile notifications
-          - repeat:
-              for_each: !input notify_devices
-              sequence:
-                - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
-                  data:
-                    title: "💧 {{ notify_title }}"
-                    message: >
-                      {{ notify_msg }}
-                      {% if not weather_ok %}
+  - delay: !input humidity_threshold_duration
 
-                      {{ notify_msg_weather }}
-                      {% endif %}
-                    data:
-                      tag: "humidity_alert_{{ entity_id | slugify }}"
-                      group: "humidity_alerts"
-                  continue_on_error: true
-          # TTS announcement
-          - if:
-              - condition: template
-                value_template: "{{ enable_tts and tts_target }}"
-            then:
-              - action: media_player.play_media
-                target:
-                  entity_id: "{{ tts_target }}"
-                data:
-                  media_content_id: >
-                    {{ tts_message }}
-                  media_content_type: text
-                  extra:
-                    volume_level: 0.5
+  - variables:
+      alert_humidity_state: "{{ states(entity_id) }}"
 
-      # Humidity normalized (dropped below threshold - hysteresis)
-      - conditions:
+  - condition: template
+    value_template: >-
+      {{ is_number(alert_humidity_state)
+         and alert_humidity_state | float > humidity_threshold }}
+
+  - condition: template
+    value_template: >-
+      {% if presence_entities | length == 0 %}
+        true
+      {% else %}
+        {{ presence_entities | expand
+           | selectattr('state', 'eq', 'home') | list | count > 0 }}
+      {% endif %}
+
+  - condition: or
+    conditions:
+      - condition: template
+        value_template: "{{ not enable_time_filter }}"
+      - condition: time
+        after: !input time_start
+        before: !input time_end
+
+  - variables:
+      alert_humidity: "{{ alert_humidity_state | float }}"
+      humidity: "{{ alert_humidity }}"
+      threshold: "{{ humidity_threshold }}"
+      device_name: >-
+        {{ state_attr(entity_id, 'friendly_name') | default(entity_id, true) }}
+      room_name: >-
+        {{ area_name(entity_id)
+           | default(state_attr(entity_id, 'friendly_name'), true)
+           | default(entity_id, true) }}
+      outside_humidity_raw: >-
+        {% if outside_humidity_sensor %}
+          {{ states(outside_humidity_sensor) }}
+        {% elif weather_entity %}
+          {{ state_attr(weather_entity, 'humidity') }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      outside_temp_raw: >-
+        {% if outside_temp_sensor %}
+          {{ states(outside_temp_sensor) }}
+        {% elif weather_entity %}
+          {{ state_attr(weather_entity, 'temperature') }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+
+  - variables:
+      alert_weather_ok: >-
+        {% set weather_configured = outside_humidity_sensor
+           or outside_temp_sensor or weather_entity %}
+        {{ not weather_configured or
+           (is_number(outside_humidity_raw) and is_number(outside_temp_raw)
+            and (outside_humidity_raw | float) < alert_humidity
+            and (outside_temp_raw | float) >= min_outside_temp
+            and (not check_rain or not weather_entity or
+                 states(weather_entity) not in ['rainy', 'pouring', 'snowy',
+                   'snowy-rainy', 'hail', 'lightning-rainy'])) }}
+
+  - variables:
+      alert_notify_msg: !input notify_message
+      alert_weather_msg: !input notify_message_weather
+      alert_tts_message: !input tts_message
+
+  - if:
+      - condition: template
+        value_template: "{{ enable_logbook }}"
+    then:
+      - action: logbook.log
+        data:
+          name: "Humidity Alert"
+          message: >-
+            {{ room_name }}: {{ alert_humidity }}% (threshold:
+            {{ humidity_threshold }}%){{ ' - Weather OK' if alert_weather_ok
+            else ' - Weather not ideal' }}
+
+  - repeat:
+      for_each: !input notify_devices
+      sequence:
+        - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+          data:
+            title: "💧 {{ notify_title }}"
+            message: >-
+              {{ alert_notify_msg }}
+              {% if not alert_weather_ok %}
+
+              {{ alert_weather_msg }}
+              {% endif %}
+            data:
+              tag: "humidity_alert_{{ entity_id | slugify }}"
+              group: "humidity_alerts"
+          continue_on_error: true
+
+  - if:
+      - condition: template
+        value_template: "{{ enable_tts and tts_target }}"
+    then:
+      - action: media_player.play_media
+        target:
+          entity_id: "{{ tts_target }}"
+        data:
+          media_content_id: "{{ alert_tts_message }}"
+          media_content_type: text
+          extra:
+            volume_level: 0.5
+        continue_on_error: true
+
+  - if:
+      - condition: template
+        value_template: "{{ notify_normalized }}"
+    then:
+      - wait_template: >-
+          {{ is_number(states(entity_id))
+             and states(entity_id) | float
+                 <= humidity_threshold - humidity_hysteresis }}
+
+      - variables:
+          recovery_humidity: "{{ states(entity_id) | float }}"
+          humidity: "{{ recovery_humidity }}"
+          threshold: "{{ humidity_threshold }}"
+
+      - condition: template
+        value_template: >-
+          {% if presence_entities | length == 0 %}
+            true
+          {% else %}
+            {{ presence_entities | expand
+               | selectattr('state', 'eq', 'home') | list | count > 0 }}
+          {% endif %}
+
+      - condition: or
+        conditions:
           - condition: template
-            value_template: "{{ is_normalized and notify_normalized }}"
-        sequence:
-          # Check presence
+            value_template: "{{ not enable_time_filter }}"
+          - condition: time
+            after: !input time_start
+            before: !input time_end
+
+      - variables:
+          recovery_notify_msg: !input notify_message_normalized
+
+      - if:
           - condition: template
-            value_template: "{{ anyone_home }}"
-          # Check time filter
-          - condition: or
-            conditions:
-              - condition: template
-                value_template: "{{ not enable_time_filter }}"
-              - condition: time
-                after: !input time_start
-                before: !input time_end
-          # Logbook
-          - if:
-              - condition: template
-                value_template: "{{ enable_logbook }}"
-            then:
-              - action: logbook.log
+            value_template: "{{ enable_logbook }}"
+        then:
+          - action: logbook.log
+            data:
+              name: "Humidity Normal"
+              message: "{{ room_name }}: {{ recovery_humidity }}% - Back to normal"
+
+      - repeat:
+          for_each: !input notify_devices
+          sequence:
+            - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+              data:
+                title: "✅ Humidity Normal"
+                message: "{{ recovery_notify_msg }}"
                 data:
-                  name: "Humidity Normal"
-                  message: "{{ room_name }}: {{ current_humidity }}% - Back to normal"
-          # Mobile notifications
-          - repeat:
-              for_each: !input notify_devices
-              sequence:
-                - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
-                  data:
-                    title: "✅ Humidity Normal"
-                    message: >
-                      {{ notify_msg_normalized }}
-                    data:
-                      tag: "humidity_alert_{{ entity_id | slugify }}"
-                      group: "humidity_alerts"
-                  continue_on_error: true
+                  tag: "humidity_alert_{{ entity_id | slugify }}"
+                  group: "humidity_alerts"
+              continue_on_error: true
 
 mode: parallel
-max: 10
+max: 50
+max_exceeded: warning
