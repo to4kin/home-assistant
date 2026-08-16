@@ -27,6 +27,15 @@ class WorkflowSeparationTest < Minitest::Test
     assert_includes test_script, "exit 1"
   end
 
+  def test_test_script_prints_test_names_and_groups_github_actions_output
+    test_script = read("scripts/test.sh")
+
+    assert_includes test_script, 'echo "Running: $test_file"'
+    assert_includes test_script, 'ruby "$test_file" --verbose'
+    assert_includes test_script, '::group::Test: $test_file'
+    assert_includes test_script, '::endgroup::'
+  end
+
   def test_tests_workflow_is_independent
     workflow = read(".github/workflows/tests.yml")
 
